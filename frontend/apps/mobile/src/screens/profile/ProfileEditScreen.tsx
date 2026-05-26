@@ -14,7 +14,10 @@ import {
 } from 'react-native';
 
 import { useAuthStore } from '../../entities/auth/authStore';
+import type { AuthUser } from '../../entities/auth/authStore';
 import { useProfileExtrasStore } from '../../entities/profile/profileExtrasStore';
+import { extractApiError } from '../../shared/api/http';
+import { useUpdateMe } from '../../shared/auth/hooks';
 import { useExtrasForCurrentUser } from '../../shared/profile/useExtrasForCurrentUser';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 import { useT } from '../../shared/i18n/useT';
@@ -25,9 +28,40 @@ import { colors } from '../../shared/theme/colors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList>;
 
+function composeFullName(user: AuthUser | null, fallback?: string | null) {
+  const fromUser = user ? `${user.surname ?? ''} ${user.name ?? ''}`.trim() : '';
+  return fromUser || fallback || '';
+}
+
+function splitProfileName(fullName: string, user: AuthUser | null) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return {
+      surname: parts[0],
+      name: parts[1],
+      patronymic: parts.slice(2).join(' ') || null,
+    };
+  }
+
+  if (parts.length === 1) {
+    return {
+      surname: user?.surname || parts[0],
+      name: parts[0],
+      patronymic: user?.patronymic ?? null,
+    };
+  }
+
+  return {
+    surname: user?.surname || '',
+    name: user?.name || '',
+    patronymic: user?.patronymic ?? null,
+  };
+}
+
 export function ProfileEditScreen() {
   const { t } = useT();
   const navigation = useNavigation<Nav>();
+  const updateMe = useUpdateMe();
   const user = useAuthStore((s) => s.user);
   const userId = useAuthStore((s) => s.user?.id);
   const hydrated = useProfileExtrasStore((s) => s._hasHydrated);
@@ -36,25 +70,31 @@ export function ProfileEditScreen() {
   const setPhoneStore = useProfileExtrasStore((s) => s.setPhoneForUser);
   const setAvatarStore = useProfileExtrasStore((s) => s.setAvatarForUser);
 
-  const composedFromServer =
-    extras.fullName ??
-    (user ? `${user.surname ?? ''} ${user.name ?? ''}`.trim() : '');
+  const composedFromServer = composeFullName(user, extras.fullName);
 
   const [fullName, setFullName] = useState(composedFromServer);
   const [email] = useState(user?.email ?? '');
-  const [phone, setPhone] = useState(extras.phone ?? '');
-  const [avatarUri, setAvatarUri] = useState<string | null>(extras.avatarUri ?? null);
+  const [phone, setPhone] = useState(user?.phone ?? extras.phone ?? '');
+  const [avatarUri, setAvatarUri] = useState<string | null>(
+    user?.avatar_url ?? extras.avatarUri ?? null,
+  );
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       if (!hydrated || !userId) return;
-      const name =
-        extras.fullName ??
-        (user ? `${user.surname ?? ''} ${user.name ?? ''}`.trim() : '');
-      setFullName(name);
-      setPhone(extras.phone ?? '');
-      setAvatarUri(extras.avatarUri ?? null);
-    }, [hydrated, userId, user, extras.fullName, extras.phone, extras.avatarUri]),
+      setFullName(composeFullName(user, extras.fullName));
+      setPhone(user?.phone ?? extras.phone ?? '');
+      setAvatarUri(user?.avatar_url ?? extras.avatarUri ?? null);
+      setSaveError(null);
+    }, [
+      hydrated,
+      userId,
+      user,
+      extras.fullName,
+      extras.phone,
+      extras.avatarUri,
+    ]),
   );
 
   const pickPhotoOnWeb = () => {
@@ -118,12 +158,27 @@ export function ProfileEditScreen() {
     }
   };
 
-  const handleSave = () => {
-    if (!userId) return;
-    setFullNameStore(userId, fullName.trim() || null);
-    setPhoneStore(userId, phone.trim() || null);
-    setAvatarStore(userId, avatarUri);
-    navigation.goBack();
+  const handleSave = async () => {
+    if (!userId || !user) return;
+    setSaveError(null);
+
+    const trimmedName = fullName.trim();
+    const phoneValue = phone.trim() || null;
+    const avatarValue = avatarUri || null;
+
+    try {
+      const updatedUser = await updateMe.mutateAsync({
+        ...splitProfileName(trimmedName, user),
+        phone: phoneValue,
+        avatar_url: avatarValue,
+      });
+      setFullNameStore(userId, null);
+      setPhoneStore(userId, updatedUser.phone);
+      setAvatarStore(userId, updatedUser.avatar_url);
+      navigation.goBack();
+    } catch (error) {
+      setSaveError(extractApiError(error));
+    }
   };
 
   return (
@@ -189,10 +244,17 @@ export function ProfileEditScreen() {
         >
           <Text style={styles.changePwdText}>{t('profileEdit.changePassword')}</Text>
         </Pressable>
+
+        {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
       </ScrollView>
 
       <View style={styles.footer}>
-        <SaveButton title={t('common.save')} onPress={handleSave} disabled={!userId} />
+        <SaveButton
+          title={t('common.save')}
+          onPress={handleSave}
+          loading={updateMe.isPending}
+          disabled={!userId || !user}
+        />
       </View>
     </KeyboardAvoidingView>
   );
@@ -315,6 +377,13 @@ const styles = StyleSheet.create({
   changePwdText: {
     color: colors.textPrimary,
     fontSize: 14,
+  },
+  errorText: {
+    marginTop: 18,
+    color: colors.errorText,
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   footer: {
     paddingHorizontal: 24,

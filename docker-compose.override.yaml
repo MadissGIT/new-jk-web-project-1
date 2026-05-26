@@ -11,8 +11,13 @@ services:
     environment:
       - ENV=development
       - PYTHONUNBUFFERED=1
+      - POSTGRES_SERVER=db
 
     command: >
       sh -c "make dev-run"
     ports:
       - "8000:8000"
+
+  migrations:
+    environment:
+      - POSTGRES_SERVER=db

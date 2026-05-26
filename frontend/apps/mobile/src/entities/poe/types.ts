@@ -34,6 +34,19 @@ export type PoeReviewCreate = {
   accessibility_rating?: number | null;
 };
 
+export type ReviewUserPublic = {
+  id: string;
+  name: string;
+};
+
+export type ReviewPublic = {
+  id: string;
+  user: ReviewUserPublic;
+  rating: number;
+  text: string;
+  created_at: string;
+};
+
 export type PaginationMeta = {
   page: number;
   limit: number;

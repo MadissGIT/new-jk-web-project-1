@@ -4,6 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import type { RootStackParamList } from '../../navigation/RootNavigator';
 import { selectIsAuthenticated, useAuthStore } from '../../entities/auth/authStore';
+import { useGuideModeStore } from '../../entities/guide/guideModeStore';
 import { usePreferencesStore } from '../../entities/preferences/preferencesStore';
 import { LogoMark } from '../../features/auth/components/LogoMark';
 import { useMe } from '../../shared/auth/hooks';
@@ -15,6 +16,8 @@ const MIN_SPLASH_MS = 1200;
 
 export function SplashScreen({ navigation }: Props) {
   const authHydrated = useAuthStore((s) => s._hasHydrated);
+  const guideHydrated = useGuideModeStore((s) => s._hasHydrated);
+  const guideModeActive = useGuideModeStore((s) => s.hasEnteredGuideMode);
   const prefsHydrated = usePreferencesStore((s) => s._hasHydrated);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const hasSeenWelcome = useAuthStore((s) => s.hasSeenWelcome);
@@ -23,6 +26,7 @@ export function SplashScreen({ navigation }: Props) {
 
   const ready =
     authHydrated &&
+    guideHydrated &&
     prefsHydrated &&
     (!isAuthenticated || me.isSuccess || me.isError);
 
@@ -32,8 +36,7 @@ export function SplashScreen({ navigation }: Props) {
     const id = setTimeout(() => {
       if (isAuthenticated) {
         if (onboardingCompleted) {
-          const startInGuide = me.data?.role === 'employee' || me.data?.role === 'admin';
-          navigation.replace('Main', { startInGuide });
+          navigation.replace('Main', guideModeActive ? { startInGuide: true } : undefined);
         } else {
           navigation.replace('OnboardingInterests');
         }
@@ -45,7 +48,7 @@ export function SplashScreen({ navigation }: Props) {
     }, MIN_SPLASH_MS);
 
     return () => clearTimeout(id);
-  }, [ready, isAuthenticated, hasSeenWelcome, onboardingCompleted, navigation, me.data?.role]);
+  }, [ready, isAuthenticated, hasSeenWelcome, onboardingCompleted, navigation, guideModeActive]);
 
   return (
     <View style={styles.root}>

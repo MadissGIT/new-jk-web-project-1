@@ -103,6 +103,7 @@ export function RegisterScreen({ navigation }: Props) {
         name,
         surname,
         patronymic: null,
+        phone: values.phone.trim() || null,
         email,
         password,
         date_of_birth: DATE_OF_BIRTH_FALLBACK,

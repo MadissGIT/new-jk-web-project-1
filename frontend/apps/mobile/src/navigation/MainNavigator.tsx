@@ -25,10 +25,19 @@ import { BookingDetailScreen } from '../screens/tours/BookingDetailScreen';
 import { BookingPaymentErrorScreen } from '../screens/tours/BookingPaymentErrorScreen';
 import { BookingPaymentSuccessScreen } from '../screens/tours/BookingPaymentSuccessScreen';
 import { TourPaymentScreen } from '../screens/tours/TourPaymentScreen';
+import { TourFiltersScreen } from '../screens/tours/TourFiltersScreen';
 import { MapFiltersScreen } from '../screens/map/MapFiltersScreen';
 import { PoeDetailScreen } from '../screens/map/PoeDetailScreen';
 import { ActiveRouteScreen } from '../screens/routes/ActiveRouteScreen';
-import { GuideDashboardScreen } from '../screens/guide/GuideDashboardScreen';
+import {
+  GuideBookingsDetailScreen,
+  GuideCreateTourScreen,
+  GuideDashboardScreen,
+  GuideEditProfileScreen,
+  GuideTourManageScreen,
+} from '../screens/guide/GuideDashboardScreen';
+import { GuideReviewsScreen } from '../screens/guide/GuideReviewsScreen';
+import { GuideToursArchiveScreen } from '../screens/guide/GuideToursArchiveScreen';
 import { useT } from '../shared/i18n/useT';
 import { colors } from '../shared/theme/colors';
 
@@ -43,12 +52,13 @@ export type MainTabParamList = {
 export type MainStackParamList = {
   Tabs: undefined;
   MapFilters: undefined;
+  TourFilters: undefined;
   PoeDetail: { poeId: string };
   TourDetail: { tourId: string; bookingId?: string };
   TourBooking: { tourId: string };
   TourDeferred: { tourId: string; bookingId?: string };
   TourReviews: { tourId: string };
-  GuideProfile: { tourId: string };
+  GuideProfile: { guideId: string; tourId?: string };
   BookingDetail: { bookingId: string };
   TourPayment: { bookingId: string };
   BookingPaymentSuccess: { bookingId: string };
@@ -64,6 +74,12 @@ export type MainStackParamList = {
   ProfileReservations: undefined;
   ProfilePayments: undefined;
   GuideDashboard: undefined;
+  GuideCreateTour: undefined;
+  GuideEditProfile: undefined;
+  GuideTourManage: { tourId: string };
+  GuideBookingsDetail: { tourId: string };
+  GuideReviews: undefined;
+  GuideToursArchive: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -121,9 +137,25 @@ export function MainNavigator({ route }: { route?: { params?: { startInGuide?: b
     >
       <Stack.Screen name="Tabs" component={TabsNavigator} />
       <Stack.Screen name="GuideDashboard" component={GuideDashboardScreen} />
+      <Stack.Screen name="GuideCreateTour" component={GuideCreateTourScreen} />
+      <Stack.Screen name="GuideEditProfile" component={GuideEditProfileScreen} />
+      <Stack.Screen name="GuideTourManage" component={GuideTourManageScreen} />
+      <Stack.Screen name="GuideBookingsDetail" component={GuideBookingsDetailScreen} />
+      <Stack.Screen name="GuideReviews" component={GuideReviewsScreen} />
+      <Stack.Screen name="GuideToursArchive" component={GuideToursArchiveScreen} />
       <Stack.Screen
         name="MapFilters"
         component={MapFiltersScreen}
+        options={{
+          headerShown: true,
+          title: 'Назад',
+          headerTintColor: colors.textPrimary,
+          headerStyle: { backgroundColor: colors.background },
+        }}
+      />
+      <Stack.Screen
+        name="TourFilters"
+        component={TourFiltersScreen}
         options={{
           headerShown: true,
           title: 'Назад',

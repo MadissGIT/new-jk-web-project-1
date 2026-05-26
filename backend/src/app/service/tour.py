@@ -4,7 +4,12 @@ from collections.abc import Sequence
 
 from fastapi import HTTPException
 
-from src.app.db.models.guide_profile import GuideStatsPublic, GuideStatsResponse, GuideTopTourPublic
+from src.app.db.models.guide_profile import (
+    GuideStatsPublic,
+    GuideStatsResponse,
+    GuideTopTourPublic,
+    GuideTourBriefPublic,
+)
 from src.app.db.models.tour import (
     GuideDetail,
     GuidePublic,
@@ -33,13 +38,12 @@ from src.app.db.models.tour import (
 )
 from src.app.db.schemas import DetailResponse, PaginationMeta
 from src.app.repositories.tour import TourRepository
+from src.app.core.datetime import normalize_app_datetime
 from src.app.service.base import BaseService
 
 
 def normalize_datetime(value: datetime.datetime) -> datetime.datetime:
-    if value.tzinfo is None:
-        return value
-    return value.astimezone(datetime.UTC).replace(tzinfo=None)
+    return normalize_app_datetime(value)
 
 
 def tour_to_guide(tour: Tour) -> GuidePublic:
@@ -78,6 +82,10 @@ def tour_to_accessibility(tour: Tour) -> TourAccessibility:
 
 
 def tour_to_public(tour: Tour) -> TourPublic:
+    cover_image_url = tour.cover_image_url
+    if not cover_image_url and tour.images:
+        cover_image_url = tour.images[0]
+
     return TourPublic(
         id=tour.id,
         title=tour.title,
@@ -86,12 +94,19 @@ def tour_to_public(tour: Tour) -> TourPublic:
         format=tour.format,
         language=tour.language,
         duration_minutes=tour.duration_minutes,
+        group_size_max=tour.group_size_max,
         status=tour.status,
         price=tour_to_price(tour),
         guide=tour_to_guide(tour),
         rating=tour.rating,
         reviews_count=tour.reviews_count,
-        cover_image_url=tour.cover_image_url,
+        cover_image_url=cover_image_url,
+        tags=tour.tags,
+        meeting_point=Location(
+            lat=tour.meeting_lat,
+            lng=tour.meeting_lng,
+            address=tour.meeting_address,
+        ),
         accessibility=tour_to_accessibility(tour),
     )
 
@@ -283,6 +298,30 @@ class TourService(BaseService[TourRepository]):
         )
         return DetailResponse(data=[slot_to_public(slot) for slot in slots])
 
+    async def get_guide_published_tours_brief(
+        self,
+        *,
+        guide_id: uuid.UUID,
+        limit: int = 20,
+    ) -> list[GuideTourBriefPublic]:
+        tours, _ = await self.repository.list_guide_tours(
+            guide_id=str(guide_id),
+            skip=0,
+            limit=limit,
+        )
+        published = [tour for tour in tours if tour.status == TourStatus.PUBLISHED]
+        published = await self._apply_runtime_ratings(published)
+        return [
+            GuideTourBriefPublic(
+                id=tour.id,
+                title=tour.title,
+                cover_image_url=tour.cover_image_url,
+                rating=tour.rating,
+                reviews_count=tour.reviews_count,
+            )
+            for tour in published
+        ]
+
     async def get_guide_stats(self, guide_id: uuid.UUID) -> GuideStatsResponse:
         _, tours_count = await self.repository.list_guide_tours(
             guide_id=str(guide_id),
@@ -361,7 +400,7 @@ class TourService(BaseService[TourRepository]):
         return await self._moderate_tour(
             tour_id=tour_id,
             admin_id=admin_id,
-            status=TourStatus.DRAFT,
+            status=TourStatus.REJECTED,
             reason=decision_in.reason,
         )
 

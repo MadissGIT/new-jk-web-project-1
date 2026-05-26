@@ -20,14 +20,36 @@ from src.app.repositories.review import ReviewRepository
 from src.app.service.base import BaseService
 
 
-def review_to_public(review: Review) -> ReviewPublic:
+def review_to_public(
+    review: Review,
+    *,
+    entity_title: str | None = None,
+) -> ReviewPublic:
     return ReviewPublic(
         id=review.id,
         user=ReviewUserPublic(id=review.user_id, name=review.user_name),
         rating=review.rating,
         text=review.text,
         created_at=review.created_at,
+        entity_type=review.entity_type,
+        entity_id=review.entity_id,
+        entity_title=entity_title,
     )
+
+
+def _review_entity_title(
+    review: Review,
+    *,
+    tours_map: dict,
+    poes_map: dict,
+) -> str | None:
+    if review.entity_type == ReviewEntityType.TOUR:
+        tour = tours_map.get(review.entity_id)
+        return tour.title if tour else None
+    if review.entity_type == ReviewEntityType.POE:
+        poe = poes_map.get(review.entity_id)
+        return poe.title if poe else None
+    return None
 
 
 def review_to_created(review: Review) -> ReviewCreatedPublic:
@@ -55,8 +77,30 @@ class ReviewService(BaseService[ReviewRepository]):
             limit=limit,
             entity_type=entity_type,
         )
+        tour_ids = [
+            review.entity_id
+            for review in reviews
+            if review.entity_type == ReviewEntityType.TOUR
+        ]
+        poe_ids = [
+            review.entity_id
+            for review in reviews
+            if review.entity_type == ReviewEntityType.POE
+        ]
+        tours_map = await self.repository.get_tours_map(ids=tour_ids)
+        poes_map = await self.repository.get_poes_map(ids=poe_ids)
         return ReviewsPublic(
-            data=[review_to_public(review) for review in reviews],
+            data=[
+                review_to_public(
+                    review,
+                    entity_title=_review_entity_title(
+                        review,
+                        tours_map=tours_map,
+                        poes_map=poes_map,
+                    ),
+                )
+                for review in reviews
+            ],
             meta=PaginationMeta.create(page=page, limit=limit, total=total),
         )
 
@@ -74,6 +118,29 @@ class ReviewService(BaseService[ReviewRepository]):
         reviews, total = await self.repository.list_reviews(
             entity_type=ReviewEntityType.TOUR,
             entity_id=tour_id,
+            skip=(page - 1) * limit,
+            limit=limit,
+            rating=rating,
+        )
+        return ReviewsPublic(
+            data=[review_to_public(review) for review in reviews],
+            meta=PaginationMeta.create(page=page, limit=limit, total=total),
+        )
+
+    async def get_poe_reviews(
+        self,
+        *,
+        poe_id: str,
+        page: int,
+        limit: int,
+        rating: int | None = None,
+    ) -> ReviewsPublic:
+        poe = await self.repository.get_poe(poe_id)
+        if not poe:
+            raise HTTPException(status_code=404, detail="POE not found")
+        reviews, total = await self.repository.list_reviews(
+            entity_type=ReviewEntityType.POE,
+            entity_id=poe_id,
             skip=(page - 1) * limit,
             limit=limit,
             rating=rating,

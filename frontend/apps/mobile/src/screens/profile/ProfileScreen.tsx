@@ -7,6 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuthStore } from '../../entities/auth/authStore';
+import { useGuideModeStore } from '../../entities/guide/guideModeStore';
 import { useExtrasForCurrentUser } from '../../shared/profile/useExtrasForCurrentUser';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 import { rootNavigationRef } from '../../navigation/navigationRef';
@@ -26,6 +27,7 @@ export function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const userId = useAuthStore((s) => s.user?.id);
   const extras = useExtrasForCurrentUser(userId);
+  const enterGuideMode = useGuideModeStore((s) => s.enterGuideMode);
   const logout = useLogout();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -33,7 +35,8 @@ export function ProfileScreen() {
   const composedName = extras.fullName ?? serverFullName;
   const displayName = composedName || t('profile.namePlaceholder');
   const displayEmail = user?.email ?? t('profile.emailPlaceholder');
-  const displayPhone = extras.phone?.trim() || null;
+  const displayPhone = user?.phone?.trim() || extras.phone?.trim() || null;
+  const displayAvatar = user?.avatar_url || extras.avatarUri;
 
   const handleLogout = () => {
     setConfirmOpen(false);
@@ -56,7 +59,7 @@ export function ProfileScreen() {
 
         <View style={styles.userRow}>
           <Avatar
-            uri={extras.avatarUri}
+            uri={displayAvatar}
             name={displayName}
             width={116}
             height={136}
@@ -129,7 +132,10 @@ export function ProfileScreen() {
           <Text style={styles.guideHint}>{t('profile.guideHint')}</Text>
           <Pressable
             style={styles.guideBtn}
-            onPress={() => navigation.navigate('GuideDashboard')}
+            onPress={() => {
+              enterGuideMode();
+              navigation.navigate('GuideDashboard');
+            }}
           >
             <Text style={styles.guideBtnText}>{t('profile.guideBtn')}</Text>
           </Pressable>

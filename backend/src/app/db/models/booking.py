@@ -122,6 +122,12 @@ class BookingPublic(SQLModel):
     participants_count: int
     status: BookingStatus
     price_total: Price
+    contact_phone: str | None = None
+    comment: str | None = None
+
+
+class GuideBookingPublic(BookingPublic):
+    customer_name: str
 
 
 class BookingDetail(BookingPublic):
@@ -143,6 +149,7 @@ class MockPaymentPublic(SQLModel):
 
 BookingCreateResponse = DetailResponse[BookingCreatedPublic]
 BookingsPublic = ListResponse[BookingPublic]
+GuideBookingsPublic = ListResponse[GuideBookingPublic]
 BookingResponse = DetailResponse[BookingDetail]
 BookingCancelResponse = DetailResponse[BookingCancelledPublic]
 MockPaymentResponse = DetailResponse[MockPaymentPublic]

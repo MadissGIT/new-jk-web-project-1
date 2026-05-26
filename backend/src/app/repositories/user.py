@@ -132,11 +132,32 @@ class UserRepository(BaseRepository[User]):
         await self.session.refresh(profile)
         return profile
 
+    async def update_guide_application_payload(
+        self,
+        *,
+        application: GuideApplication,
+        payload: dict,
+    ) -> GuideApplication:
+        application.payload = payload
+        self.session.add(application)
+        await self.session.commit()
+        await self.session.refresh(application)
+        return application
+
     async def get_pending_guide_application(self, user_id: Any) -> GuideApplication | None:
         statement = (
             select(GuideApplication)
             .where(GuideApplication.user_id == user_id)
             .where(GuideApplication.status == GuideApplicationStatus.PENDING)
+            .order_by(GuideApplication.created_at.desc())
+            .limit(1)
+        )
+        return (await self.session.execute(statement)).scalars().first()
+
+    async def get_latest_guide_application(self, user_id: Any) -> GuideApplication | None:
+        statement = (
+            select(GuideApplication)
+            .where(GuideApplication.user_id == user_id)
             .order_by(GuideApplication.created_at.desc())
             .limit(1)
         )

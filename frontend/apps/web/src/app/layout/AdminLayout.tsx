@@ -9,7 +9,6 @@ import {
   BellIcon,
   KnowledgeIcon,
   LogoutIcon,
-  SettingsIcon,
   TicketsIcon,
   UserIcon,
 } from '../../shared/ui/Icon'
@@ -23,10 +22,11 @@ type NavEntry = {
 }
 
 const navItems: NavEntry[] = [
-  { to: '/admin/tickets', label: 'Обращения', icon: TicketsIcon },
-  { to: '/admin/analytics', label: 'Аналитика', icon: AnalyticsIcon },
-  { to: '/admin/knowledge', label: 'База знаний', icon: KnowledgeIcon },
-  { to: '/admin/settings', label: 'Настройки', icon: SettingsIcon },
+  { to: '/admin/users', label: 'Пользователи', icon: UserIcon },
+  { to: '/admin/guides', label: 'Заявки гидов', icon: UserIcon },
+  { to: '/admin/tours', label: 'Туры', icon: TicketsIcon },
+  { to: '/admin/poes', label: 'Точки интереса', icon: KnowledgeIcon },
+  { to: '/admin/reviews', label: 'Отзывы', icon: AnalyticsIcon },
 ]
 
 export function AdminLayout() {
@@ -46,24 +46,44 @@ export function AdminLayout() {
     >
       <aside
         style={{
-          width: 240,
-          background: tokens.color.sidebarBg,
-          color: tokens.color.sidebarText,
+          width: 250,
+          background: tokens.color.surface,
+          color: tokens.color.textPrimary,
+          borderRight: `1px solid ${tokens.color.border}`,
           display: 'flex',
           flexDirection: 'column',
-          padding: '24px 16px',
-          gap: 24,
+          padding: '20px 14px',
+          gap: 28,
         }}
       >
         <div
           style={{
-            fontSize: 16,
-            fontWeight: 600,
-            color: tokens.color.accentOnDark,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            fontSize: 24,
+            fontWeight: 800,
+            color: '#111827',
             padding: '0 12px',
           }}
         >
-          Умный навигатор
+          <span
+            aria-hidden
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              border: '3px solid #007D68',
+              color: '#007D68',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          >
+            ◇
+          </span>
+          TourAdmin
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -84,7 +104,7 @@ export function AdminLayout() {
               padding: '10px 12px',
               background: 'transparent',
               border: 'none',
-              color: tokens.color.sidebarText,
+              color: tokens.color.textSecondary,
               borderRadius: tokens.radius.sm,
               cursor: 'pointer',
               fontSize: 14,
@@ -170,13 +190,13 @@ function NavItem({ to, label, icon: IconComp }: NavEntry) {
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        padding: '10px 12px',
-        borderRadius: tokens.radius.sm,
+        padding: '13px 16px',
+        borderRadius: 12,
         textDecoration: 'none',
-        fontSize: 14,
-        fontWeight: isActive ? 500 : 400,
-        background: isActive ? tokens.color.sidebarActiveBg : 'transparent',
-        color: isActive ? tokens.color.sidebarTextActive : tokens.color.sidebarText,
+        fontSize: 16,
+        fontWeight: isActive ? 700 : 600,
+        background: isActive ? '#DDF6EE' : 'transparent',
+        color: isActive ? '#007D68' : '#4B5563',
         transition: 'background 120ms ease, color 120ms ease',
       })}
     >

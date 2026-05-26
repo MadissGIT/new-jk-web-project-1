@@ -8,6 +8,8 @@ type RouteHistoryState = {
   routes: RouteGeneratedPublic[];
   addRoute: (route: RouteGeneratedPublic) => void;
   updateRoute: (route: RouteGeneratedPublic) => void;
+  removeRoutes: (routeIds: string[]) => void;
+  clearRoutes: () => void;
 };
 
 export const useRouteHistoryStore = create<RouteHistoryState>()(
@@ -23,6 +25,11 @@ export const useRouteHistoryStore = create<RouteHistoryState>()(
         set((state) => ({
           routes: state.routes.map((item) => (item.id === route.id ? route : item)),
         })),
+      removeRoutes: (routeIds) =>
+        set((state) => ({
+          routes: state.routes.filter((item) => !routeIds.includes(item.id)),
+        })),
+      clearRoutes: () => set({ routes: [] }),
     }),
     {
       name: 'route-history',

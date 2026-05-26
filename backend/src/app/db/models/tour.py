@@ -1,7 +1,7 @@
 import datetime
 import uuid
 
-from sqlalchemy import JSON, Column, ForeignKey
+from sqlalchemy import JSON, Column, ForeignKey, Text
 from sqlmodel import Field, SQLModel
 
 from src.app.const import Variants
@@ -36,6 +36,7 @@ class TourStatus(Variants):
     MODERATION = "moderation"
     PUBLISHED = "published"
     HIDDEN = "hidden"
+    REJECTED = "rejected"
 
 
 class Price(SQLModel):
@@ -89,7 +90,7 @@ class TourBase(SQLModel):
     avoid_stairs_possible: bool = False
     rating: float = Field(default=0.0, ge=0, le=5)
     reviews_count: int = Field(default=0, ge=0)
-    cover_image_url: str | None = Field(default=None, max_length=512)
+    cover_image_url: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     images: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     cancellation_policy: str = Field(default="free_24h", max_length=64)
     route_distance_meters: int = Field(default=0, ge=0)
@@ -127,6 +128,7 @@ class TourSlot(SQLModel, table=True):
 class TourCreate(TourBase):
     guide_id: str | None = None
     guide_name: str | None = None
+    status: TourStatus = TourStatus.DRAFT
     guide_avatar_url: str | None = None
     guide_rating: float = 0.0
     guide_reviews_count: int = 0
@@ -148,7 +150,7 @@ class TourUpdate(SQLModel):
     meeting_address: str | None = Field(default=None, max_length=512)
     wheelchair_accessible: bool | None = None
     avoid_stairs_possible: bool | None = None
-    cover_image_url: str | None = Field(default=None, max_length=512)
+    cover_image_url: str | None = None
     images: list[str] | None = None
     cancellation_policy: str | None = Field(default=None, max_length=64)
 
@@ -185,12 +187,15 @@ class TourPublic(SQLModel):
     format: TourFormat
     language: str
     duration_minutes: int
+    group_size_max: int
     status: TourStatus
     price: Price
     guide: GuidePublic
     rating: float
     reviews_count: int
     cover_image_url: str | None = None
+    tags: list[str]
+    meeting_point: Location
     accessibility: TourAccessibility
 
 

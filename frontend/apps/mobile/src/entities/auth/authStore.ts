@@ -8,7 +8,10 @@ export type AuthUser = {
   name: string;
   surname: string;
   patronymic: string | null;
+  phone: string | null;
+  avatar_url: string | null;
   role: 'user' | 'employee' | 'admin';
+  status?: 'active' | 'blocked';
   date_of_birth: string;
   created_at: string;
 };

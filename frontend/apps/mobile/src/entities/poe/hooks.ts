@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchPoeDetail, fetchPoes } from './api';
+import { fetchPoeDetail, fetchPoeReviews, fetchPoes } from './api';
 import type { PoeQuery } from './types';
 
 export function usePoes(query: PoeQuery) {
@@ -17,5 +17,14 @@ export function usePoeDetail(poeId: string | null) {
     queryFn: () => fetchPoeDetail(poeId as string),
     enabled: Boolean(poeId),
     staleTime: 60_000,
+  });
+}
+
+export function usePoeReviews(poeId: string | null) {
+  return useQuery({
+    queryKey: ['poe', 'reviews', poeId],
+    queryFn: () => fetchPoeReviews(poeId as string, { limit: 20 }),
+    enabled: Boolean(poeId),
+    staleTime: 30_000,
   });
 }

@@ -35,7 +35,9 @@ function mapAccessibility(poe: PoePublic): AccessibilityId[] {
   const result: AccessibilityId[] = [];
   if (poe.accessibility.wheelchair_accessible) result.push('wheelchair');
   if (poe.accessibility.has_ramp) result.push('ramps');
-  if (poe.accessibility.has_stairs) result.push('avoid_stairs');
+  // «avoid_stairs» — это потребность пользователя; место удовлетворяет ей,
+  // когда у него нет лестниц на входе/внутри. Иначе ставим обратный пометки нет.
+  if (!poe.accessibility.has_stairs) result.push('avoid_stairs');
   if (result.length === 0) result.push('none');
   return result;
 }

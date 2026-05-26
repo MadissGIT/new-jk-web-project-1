@@ -7,6 +7,7 @@ from src.app.db.models.poe import Location, Poe
 from src.app.db.models.route import (
     Pace,
     Route,
+    RouteAccessibilityRequest,
     RouteDetailPublic,
     RouteGeneratedPublic,
     RouteGenerateRequest,
@@ -24,6 +25,8 @@ from src.app.db.models.route import (
     RouteResponse,
     RouteSavedPublic,
     RouteSaveResponse,
+    RouteScenarioPublic,
+    RouteScenariosPublic,
     RouteSource,
     RoutesPublic,
     RouteStatus,
@@ -38,6 +41,27 @@ PACE_WALKING_SPEED_METERS_PER_MINUTE = {
     Pace.SLOW: 55,
     Pace.MEDIUM: 75,
     Pace.FAST: 95,
+}
+
+NOISY_POE_MARKERS = {
+    "bar",
+    "club",
+    "concert",
+    "dance",
+    "dj",
+    "loud",
+    "music",
+    "night",
+    "party",
+    "бар",
+    "вечерин",
+    "громк",
+    "диджей",
+    "клуб",
+    "концерт",
+    "музык",
+    "ночн",
+    "танц",
 }
 
 
@@ -55,6 +79,7 @@ class RouteService(BaseService[RouteRepository]):
         candidates = await self.poe_repository.list_candidates(
             city_id=request.city_id,
             wheelchair_accessible=True if request.accessibility.wheelchair_required else None,
+            requires_ramp=request.accessibility.requires_ramp,
             avoid_stairs=request.accessibility.avoid_stairs,
         )
         selected = self._select_points(request, list(candidates))
@@ -317,6 +342,11 @@ class RouteService(BaseService[RouteRepository]):
         )
 
     def _select_points(self, request: RouteGenerateRequest, candidates: list[Poe]) -> list[Poe]:
+        candidates = [
+            poe
+            for poe in candidates
+            if self._matches_accessibility_request(poe, request.accessibility)
+        ]
         interests = {interest.lower() for interest in request.interests}
         matching = [
             poe
@@ -355,6 +385,32 @@ class RouteService(BaseService[RouteRepository]):
                 break
         return selected
 
+    def _matches_accessibility_request(
+        self,
+        poe: Poe,
+        accessibility: RouteAccessibilityRequest,
+    ) -> bool:
+        if accessibility.wheelchair_required and not poe.wheelchair_accessible:
+            return False
+        if accessibility.requires_ramp and not poe.has_ramp:
+            return False
+        if accessibility.avoid_stairs and poe.has_stairs:
+            return False
+        if accessibility.audio_preferred and self._is_noisy_poe(poe):
+            return False
+        return True
+
+    def _is_noisy_poe(self, poe: Poe) -> bool:
+        text = " ".join(
+            [
+                poe.title,
+                poe.description,
+                poe.category,
+                *[str(tag) for tag in poe.tags],
+            ],
+        ).lower()
+        return any(marker in text for marker in NOISY_POE_MARKERS)
+
     def _route_distance(self, request: RouteGenerateRequest, points: list[Poe]) -> int:
         total = 0
         current_lat = request.start_location.lat
@@ -380,3 +436,29 @@ class RouteService(BaseService[RouteRepository]):
         if points:
             return f"Маршрут: {points[0].category}"
         return "Новый маршрут"
+
+    async def get_scenarios(self) -> RouteScenariosPublic:
+        items = await self.repository.list_active_scenarios()
+        return RouteScenariosPublic(
+            data=[
+                RouteScenarioPublic(
+                    id=item.id,
+                    slug=item.slug,
+                    title=item.title,
+                    description=item.description,
+                    icon=item.icon,
+                    interests=list(item.interests or []),
+                    duration_minutes=item.duration_minutes,
+                    pace=Pace(item.pace),
+                    budget_level=item.budget_level,
+                    accessibility=RouteAccessibilityRequest(
+                        wheelchair_required=item.wheelchair_required,
+                        avoid_stairs=item.avoid_stairs,
+                        need_rest_points=item.need_rest_points,
+                    ),
+                    sort_order=item.sort_order,
+                )
+                for item in items
+            ],
+            meta=PaginationMeta.create(page=1, limit=len(items) or 1, total=len(items)),
+        )

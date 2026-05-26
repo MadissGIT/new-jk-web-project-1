@@ -142,6 +142,7 @@ class PoeService(BaseService[PoeRepository]):
             city_id=city_id,
             category=category,
             wheelchair_accessible=wheelchair_accessible,
+            requires_ramp=None,
             avoid_stairs=avoid_stairs,
         )
         parsed_tags = {tag.strip().lower() for tag in (tags or "").split(",") if tag.strip()}
@@ -171,6 +172,7 @@ class PoeService(BaseService[PoeRepository]):
             city_id=city_id,
             category=category,
             wheelchair_accessible=wheelchair_accessible,
+            requires_ramp=None,
         )
         parsed_tags = {tag.strip().lower() for tag in (tags or "").split(",") if tag.strip()}
         filtered = filter_by_bbox(filter_by_tags(poes, parsed_tags), bbox)

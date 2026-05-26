@@ -1,26 +1,63 @@
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useEffect, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuthStore } from '../entities/auth/authStore';
-import { useExtrasForCurrentUser } from '../shared/profile/useExtrasForCurrentUser';
+import { usePreferencesStore } from '../entities/preferences/preferencesStore';
+import { useActiveRouteStore } from '../entities/route/activeRouteStore';
+import { useRouteHistoryStore } from '../entities/route/routeHistoryStore';
 import {
-  nearbyItems,
-  quickScenarios,
-  routes,
-  type NearbyItem,
-  type QuickScenario,
-  type RouteItem,
-} from '../entities/routes/mockData';
+  scenarioToOverrides,
+  useRouteBuilder,
+} from '../entities/route/useRouteBuilder';
+import {
+  useRouteScenarios,
+  type RouteScenarioPublic,
+} from '../entities/route/scenariosApi';
+import { CURRENT_LOCATION_FALLBACK } from '../entities/route/readyRoutes';
+import { useNearbyTours, type NearbyTourItem } from '../entities/tour/useNearbyTours';
+import { useExtrasForCurrentUser } from '../shared/profile/useExtrasForCurrentUser';
 import type { MainStackParamList } from '../navigation/MainNavigator';
 import { colors } from '../shared/theme/colors';
+
+type FeatherIconName = keyof typeof Feather.glyphMap;
+
+const INTEREST_LABELS: Record<string, string> = {
+  art: 'искусство',
+  coffee: 'кофе',
+  history: 'история',
+  nature: 'природа',
+  music: 'музыка',
+  relax: 'спокойно',
+};
 
 function getGreetingName(fullName: string | undefined, fallback: string) {
   if (!fullName) return fallback;
   const [, name] = fullName.split(/\s+/);
   return name?.trim() || fullName.trim() || fallback;
+}
+
+function formatDurationLabel(hours: number | null | undefined) {
+  if (!hours || hours < 1) return '2 часа';
+  const rounded = Math.round(hours);
+  if (rounded === 1) return '1 час';
+  if (rounded >= 2 && rounded <= 4) return `${rounded} часа`;
+  return `${rounded} часов`;
+}
+
+function pickIcon(name: string, fallback: FeatherIconName): FeatherIconName {
+  return name in Feather.glyphMap ? (name as FeatherIconName) : fallback;
 }
 
 export function HomeScreen() {
@@ -31,13 +68,71 @@ export function HomeScreen() {
   const userId = useAuthStore((s) => s.user?.id);
   const extras = useExtrasForCurrentUser(userId);
 
-  const serverFullName = user ? `${user.surname ?? ''} ${user.name ?? ''}`.trim() : '';
-  const composedName = extras.fullName ?? serverFullName;
+  const preferenceInterests = usePreferencesStore((s) => s.interests);
+  const durationMinHours = usePreferencesStore((s) => s.durationMinHours);
+  const durationMaxHours = usePreferencesStore((s) => s.durationMaxHours);
 
+  const activeRoute = useActiveRouteStore((s) => s.route);
+  const routeHistory = useRouteHistoryStore((s) => s.routes);
+
+  const scenarios = useRouteScenarios();
+  const builder = useRouteBuilder();
+  const [currentLocation, setCurrentLocation] = useState<{
+    lat: number;
+    lng: number;
+    address: string;
+  }>(CURRENT_LOCATION_FALLBACK);
+  const nearbyTours = useNearbyTours(currentLocation, 2);
+
+  useEffect(() => {
+    const geolocation = globalThis.navigator?.geolocation;
+    if (!geolocation) return;
+
+    geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const looksLikeEkaterinburg =
+          latitude > 56.4 && latitude < 57.2 && longitude > 59.8 && longitude < 61.0;
+        if (!looksLikeEkaterinburg) return;
+        setCurrentLocation({
+          lat: latitude,
+          lng: longitude,
+          address: 'Текущее местоположение',
+        });
+      },
+      () => undefined,
+      { enableHighAccuracy: true, timeout: 3500, maximumAge: 120000 },
+    );
+  }, []);
+
+  const serverFullName = user
+    ? `${user.surname ?? ''} ${user.name ?? ''}`.trim()
+    : '';
+  const composedName = extras.fullName ?? serverFullName;
   const firstName = getGreetingName(composedName || undefined, 'гость');
 
-  const activeRoute = routes.find((r) => r.status === 'active');
-  const plannedRoutes = routes.filter((r) => r.status === 'planned');
+  const primaryInterestLabel = preferenceInterests.length
+    ? INTEREST_LABELS[preferenceInterests[0]] ?? preferenceInterests[0]
+    : 'интересы';
+  const averageDuration =
+    durationMinHours && durationMaxHours
+      ? (durationMinHours + durationMaxHours) / 2
+      : durationMinHours ?? durationMaxHours ?? 2;
+  const durationLabel = formatDurationLabel(averageDuration);
+
+  const plannedRoutes = routeHistory
+    .filter((route) => route.id !== activeRoute?.id && route.status !== 'completed')
+    .slice(0, 3);
+
+  const handleGeneratePrimary = () => {
+    void builder.build();
+  };
+
+  const handleScenarioPress = (scenario: RouteScenarioPublic) => {
+    void builder.build(scenarioToOverrides(scenario));
+  };
+
+  const openInterestPicker = () => navigation.navigate('ProfileInterests');
 
   return (
     <ScrollView
@@ -60,112 +155,169 @@ export function HomeScreen() {
       <View style={styles.filtersRow}>
         <View style={styles.filtersLeft}>
           <View style={styles.filtersGroup}>
-            <FilterChip label="2 часа" />
-            <FilterChip label="искусство" />
+            <FilterChip label={durationLabel} onPress={openInterestPicker} />
+            <FilterChip label={primaryInterestLabel} onPress={openInterestPicker} />
           </View>
           <View style={styles.filtersGroup}>
-            <FilterChip label="рядом" />
+            <FilterChip label="рядом" onPress={openInterestPicker} />
           </View>
         </View>
-        <Pressable style={styles.boxBtn}>
+        <Pressable style={styles.boxBtn} onPress={openInterestPicker}>
           <Feather name="box" size={20} color={colors.textPrimary} />
         </Pressable>
       </View>
 
-      <Pressable style={styles.generateBtn}>
-        <Text style={styles.generateBtnText}>Сгенерировать маршрут</Text>
+      <Pressable
+        style={[styles.generateBtn, builder.isBuilding && styles.generateBtnDisabled]}
+        disabled={builder.isBuilding}
+        onPress={handleGeneratePrimary}
+      >
+        {builder.isBuilding ? (
+          <ActivityIndicator color={colors.white} />
+        ) : (
+          <Text style={styles.generateBtnText}>Сгенерировать маршрут</Text>
+        )}
       </Pressable>
+
+      {builder.notice ? <Text style={styles.noticeText}>{builder.notice}</Text> : null}
+      {builder.error ? <Text style={styles.errorText}>{builder.error}</Text> : null}
 
       <Text style={styles.sectionTitle}>Быстрые сценарии</Text>
       <View style={styles.quickGrid}>
-        {quickScenarios.map((scenario) => (
-          <QuickCard key={scenario.id} scenario={scenario} />
-        ))}
+        {scenarios.isLoading ? (
+          <Text style={styles.noticeText}>Загружаем сценарии...</Text>
+        ) : scenarios.data?.length ? (
+          scenarios.data.map((scenario) => (
+            <QuickCard
+              key={scenario.id}
+              scenario={scenario}
+              disabled={builder.isBuilding}
+              onPress={() => handleScenarioPress(scenario)}
+            />
+          ))
+        ) : (
+          <Text style={styles.noticeText}>Сценарии пока не настроены.</Text>
+        )}
       </View>
 
       <Text style={styles.sectionTitle}>Для вас</Text>
       {activeRoute ? (
         <RouteRow
-          route={activeRoute}
-          onPress={() => navigation.navigate('ActiveRoute')}
+          title={activeRoute.title}
+          metaPrimary={`${(activeRoute.distance_meters / 1000).toFixed(1)} км  •  ${Math.round(activeRoute.duration_minutes / 60)} часа`}
           ctaLabel="Продолжить"
           statusLabel="Сейчас активен"
           statusColor={colors.statusActive}
+          onPress={() => navigation.navigate('ActiveRoute')}
         />
       ) : null}
       {plannedRoutes.map((route) => (
         <RouteRow
           key={route.id}
-          route={route}
+          title={route.title}
+          metaPrimary={`${(route.distance_meters / 1000).toFixed(1)} км  •  ${Math.round(route.duration_minutes / 60)} ч  •  ${route.pace}`}
           ctaLabel="Начать"
           statusLabel="В планах"
           statusColor={colors.statusPlanned}
+          onPress={() => {
+            useActiveRouteStore.getState().setRoute(route);
+            navigation.navigate('ActiveRoute');
+          }}
         />
       ))}
+      {!activeRoute && plannedRoutes.length === 0 ? (
+        <Text style={styles.noticeText}>
+          Сгенерируйте маршрут — он появится здесь и в разделе «Маршруты».
+        </Text>
+      ) : null}
 
       <Text style={styles.sectionTitle}>Рядом сейчас</Text>
-      <View style={styles.nearbyRow}>
-        {nearbyItems.map((item) => (
-          <NearbyCard key={item.id} item={item} />
-        ))}
-      </View>
+      {nearbyTours.isLoading ? (
+        <ActivityIndicator color={colors.textPrimary} style={styles.nearbyLoader} />
+      ) : nearbyTours.items.length ? (
+        <View style={styles.nearbyRow}>
+          {nearbyTours.items.map((item) => (
+            <NearbyCard
+              key={item.tour.id}
+              item={item}
+              onPress={() =>
+                navigation.navigate('TourDetail', { tourId: item.tour.id })
+              }
+            />
+          ))}
+        </View>
+      ) : (
+        <Text style={styles.noticeText}>
+          Опубликованных туров рядом пока нет. Загляните в раздел «Туры».
+        </Text>
+      )}
 
       <View style={{ height: 16 }} />
     </ScrollView>
   );
 }
 
-function FilterChip({ label }: { label: string }) {
+function FilterChip({ label, onPress }: { label: string; onPress?: () => void }) {
   return (
-    <Pressable style={styles.chip}>
+    <Pressable style={styles.chip} onPress={onPress}>
       <Text style={styles.chipText}>{label}</Text>
       <Feather name="chevron-down" size={14} color={colors.textMuted} />
     </Pressable>
   );
 }
 
-function QuickCard({ scenario }: { scenario: QuickScenario }) {
+function QuickCard({
+  scenario,
+  disabled,
+  onPress,
+}: {
+  scenario: RouteScenarioPublic;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const iconName = pickIcon(scenario.icon, 'map');
   return (
-    <Pressable style={styles.quickCard}>
+    <Pressable
+      style={[styles.quickCard, disabled && styles.quickCardDisabled]}
+      disabled={disabled}
+      onPress={onPress}
+    >
       <Feather
-        name={scenario.icon}
+        name={iconName}
         size={18}
         color={colors.textPrimary}
         style={styles.quickIcon}
       />
       <Text style={styles.quickText} numberOfLines={1}>
-        {scenario.label}
+        {scenario.title}
       </Text>
     </Pressable>
   );
 }
 
 function RouteRow({
-  route,
+  title,
+  metaPrimary,
   ctaLabel,
   statusLabel,
   statusColor,
   onPress,
 }: {
-  route: RouteItem;
+  title: string;
+  metaPrimary: string;
   ctaLabel: string;
   statusLabel: string;
   statusColor: string;
   onPress?: () => void;
 }) {
-  const meta =
-    route.status === 'active'
-      ? `${route.distanceKm} км  •  ${route.durationHours} часа`
-      : `${route.distanceKm} км  •  ${(route.tags ?? [route.pace]).join('  •  ')}`;
-
   return (
     <View style={styles.routeRow}>
       <View style={styles.statusRow}>
         <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
         <Text style={styles.statusText}>{statusLabel}</Text>
       </View>
-      <Text style={styles.routeTitle}>{route.title}</Text>
-      <Text style={styles.routeMeta}>{meta}</Text>
+      <Text style={styles.routeTitle}>{title}</Text>
+      <Text style={styles.routeMeta}>{metaPrimary}</Text>
       <Pressable style={styles.pillBtn} onPress={onPress}>
         <Text style={styles.pillBtnText}>{ctaLabel}</Text>
       </Pressable>
@@ -173,29 +325,43 @@ function RouteRow({
   );
 }
 
-function NearbyCard({ item }: { item: NearbyItem }) {
+function NearbyCard({
+  item,
+  onPress,
+}: {
+  item: NearbyTourItem;
+  onPress: () => void;
+}) {
+  const { tour } = item;
   return (
     <View style={styles.nearbyCard}>
-      <View style={[styles.nearbyImage, { backgroundColor: item.color }]}>
-        <Feather
-          name={item.icon}
-          size={28}
-          color="rgba(255,255,255,0.5)"
-          style={styles.nearbyImageIcon}
-        />
+      <View style={styles.nearbyImage}>
+        {tour.cover_image_url ? (
+          <Image
+            source={{ uri: tour.cover_image_url }}
+            style={styles.nearbyImageFill}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.nearbyImageFill, styles.nearbyImagePlaceholder]}>
+            <Feather name="image" size={28} color="rgba(255,255,255,0.5)" />
+          </View>
+        )}
         <View style={styles.ratingPill}>
           <Feather name="star" size={10} color={colors.white} />
           <Text style={styles.ratingText}>
-            {item.rating.toString().replace('.', ',')} ({item.votes})
+            {tour.rating.toFixed(1).replace('.', ',')} ({tour.reviews_count})
           </Text>
         </View>
       </View>
       <Text style={styles.nearbyTitle} numberOfLines={2}>
-        {item.title}
+        {tour.title}
       </Text>
       <Text style={styles.nearbyMeta}>{item.schedule}</Text>
-      <Text style={styles.nearbyPrice}>{item.price}</Text>
-      <Pressable style={[styles.pillBtn, styles.pillBtnFull]}>
+      <Text style={styles.nearbyPrice}>
+        {tour.price.amount.toLocaleString('ru-RU')} руб.
+      </Text>
+      <Pressable style={[styles.pillBtn, styles.pillBtnFull]} onPress={onPress}>
         <Text style={styles.pillBtnText}>Подробнее</Text>
       </Pressable>
     </View>
@@ -286,9 +452,25 @@ const styles = StyleSheet.create({
     minWidth: 260,
     alignItems: 'center',
   },
+  generateBtnDisabled: {
+    opacity: 0.6,
+  },
   generateBtnText: {
     color: colors.white,
     fontSize: 15,
+    fontWeight: '700',
+  },
+
+  noticeText: {
+    marginTop: 10,
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  errorText: {
+    marginTop: 10,
+    color: colors.errorText,
+    fontSize: 13,
     fontWeight: '700',
   },
 
@@ -318,6 +500,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     minHeight: 48,
+  },
+  quickCardDisabled: {
+    opacity: 0.6,
   },
   quickIcon: {
     opacity: 0.9,
@@ -376,6 +561,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
+  nearbyLoader: {
+    marginVertical: 12,
+  },
   nearbyRow: {
     flexDirection: 'row',
     gap: 12,
@@ -390,12 +578,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'flex-end',
     padding: 8,
+    backgroundColor: colors.line,
   },
-  nearbyImageIcon: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -14 }, { translateY: -14 }],
+  nearbyImageFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  nearbyImagePlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8A7D68',
   },
   ratingPill: {
     flexDirection: 'row',

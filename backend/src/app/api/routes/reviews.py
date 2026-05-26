@@ -73,6 +73,22 @@ async def create_poe_review(
     )
 
 
+@router.get("/poes/{poe_id}/reviews", response_model=ReviewsPublic)
+async def read_poe_reviews(
+    review_service: ReviewServiceDep,
+    pagination: PaginationDep,
+    poe_id: str,
+    rating: int | None = None,
+) -> ReviewsPublic:
+    """Список публичных отзывов на POI. Доступен без авторизации."""
+    return await review_service.get_poe_reviews(
+        poe_id=poe_id,
+        page=pagination.page,
+        limit=pagination.limit,
+        rating=rating,
+    )
+
+
 @router.delete("/reviews/me/{review_id}", response_model=DetailResponse[dict[str, str]])
 async def delete_my_review(
     review_service: ReviewServiceDep,

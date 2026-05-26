@@ -15,9 +15,18 @@ export type RegisterPayload = {
   name: string;
   surname: string;
   patronymic: string | null;
+  phone?: string | null;
   email: string;
   password: string;
   date_of_birth: string;
+};
+
+export type UpdateMePayload = {
+  name?: string | null;
+  surname?: string | null;
+  patronymic?: string | null;
+  phone?: string | null;
+  avatar_url?: string | null;
 };
 
 export async function loginRequest(payload: LoginPayload): Promise<TokenResponse> {
@@ -37,5 +46,10 @@ export async function registerRequest(payload: RegisterPayload): Promise<AuthUse
 
 export async function fetchMe(): Promise<AuthUser> {
   const { data } = await http.get<AuthUser>('/users/me');
+  return data;
+}
+
+export async function updateMe(payload: UpdateMePayload): Promise<AuthUser> {
+  const { data } = await http.put<AuthUser>('/users/me', payload);
   return data;
 }

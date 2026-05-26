@@ -15,13 +15,14 @@ from src.app.api.dependencies.users import CurrentUser, UserOr404, get_current_g
 from src.app.db.models.booking import (
     BookingCancelResponse,
     BookingResponse,
-    BookingsPublic,
+    GuideBookingsPublic,
     BookingStatus,
 )
 from src.app.db.models.guide_application import GuideApplicationCreate, GuideApplicationResponse
 from src.app.db.models.guide_profile import (
     GuideProfileResponse,
     GuideProfileUpdate,
+    GuidePublicProfileResponse,
     GuideStatsResponse,
 )
 from src.app.db.models.review import ReviewsPublic
@@ -51,6 +52,14 @@ async def apply_for_guide(
     )
 
 
+@router.get("/applications/me/latest", response_model=GuideApplicationResponse)
+async def read_latest_guide_application_me(
+    user_service: UserServiceDep,
+    current_user: CurrentUser,
+) -> GuideApplicationResponse:
+    return await user_service.get_latest_guide_application_for_user(user_id=current_user.id)
+
+
 @router.patch("/me", response_model=GuideProfileResponse)
 async def update_guide_profile_me(
     user_service: UserServiceDep,
@@ -63,7 +72,7 @@ async def update_guide_profile_me(
     )
 
 
-@router.get("/me/bookings", response_model=BookingsPublic)
+@router.get("/me/bookings", response_model=GuideBookingsPublic)
 async def read_guide_bookings(
     booking_service: BookingServiceDep,
     pagination: PaginationDep,
@@ -72,7 +81,7 @@ async def read_guide_bookings(
     tour_id: str | None = None,
     date_from: datetime.datetime | None = None,
     date_to: datetime.datetime | None = None,
-) -> BookingsPublic:
+) -> GuideBookingsPublic:
     return await booking_service.get_guide_bookings(
         guide_id=current_user.id,
         page=pagination.page,
@@ -131,10 +140,13 @@ async def read_guide_reviews(
     )
 
 
-@router.get("/{guide_id}", response_model=GuideProfileResponse)
+@router.get("/{user_id}", response_model=GuidePublicProfileResponse)
 async def read_guide_profile_by_id(
     user_service: UserServiceDep,
-    guide_id: uuid.UUID,
+    tour_service: TourServiceDep,
     user: UserOr404,
-) -> GuideProfileResponse:
-    return await user_service.get_guide_profile(user_id=guide_id)
+) -> GuidePublicProfileResponse:
+    # Путь называется user_id, потому что Depends(get_user_or_404) ожидает
+    # параметр с таким именем. Раньше было guide_id + user: UserOr404 —
+    # FastAPI не мог сопоставить guide_id → user_id и отдавал 422 Field required.
+    return await user_service.get_guide_public_profile(guide=user, tour_service=tour_service)

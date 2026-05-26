@@ -14,10 +14,16 @@ import type {
   TourPublic,
   TourSlotCreatePayload,
   TourSlotPublic,
+  TourSlotUpdatePayload,
 } from './types';
 
 export async function fetchTours(params?: Record<string, unknown>) {
   const { data } = await http.get<ListResponse<TourPublic>>('/tours', { params });
+  return data;
+}
+
+export async function fetchMyTours(params?: Record<string, unknown>) {
+  const { data } = await http.get<ListResponse<TourPublic>>('/tours/me', { params });
   return data;
 }
 
@@ -42,6 +48,25 @@ export async function createTourSlot(tourId: string, payload: TourSlotCreatePayl
   const { data } = await http.post<DetailResponse<TourSlotPublic>>(
     `/tours/${tourId}/slots`,
     payload,
+  );
+  return data.data;
+}
+
+export async function updateTourSlot(
+  tourId: string,
+  slotId: string,
+  payload: TourSlotUpdatePayload,
+) {
+  const { data } = await http.patch<DetailResponse<TourSlotPublic>>(
+    `/tours/${tourId}/slots/${slotId}`,
+    payload,
+  );
+  return data.data;
+}
+
+export async function closeTourSlot(tourId: string, slotId: string) {
+  const { data } = await http.post<DetailResponse<TourSlotPublic>>(
+    `/tours/${tourId}/slots/${slotId}/close`,
   );
   return data.data;
 }
@@ -97,4 +122,11 @@ export async function createTourReview(
 export async function fetchTourReviews(tourId: string) {
   const { data } = await http.get<ListResponse<TourReviewPublic>>(`/tours/${tourId}/reviews`);
   return data;
+}
+
+export async function updateTourStatus(tourId: string, status: TourPublic['status']) {
+  const { data } = await http.patch<DetailResponse<TourDetail>>(`/tours/${tourId}/status`, {
+    status,
+  });
+  return data.data;
 }

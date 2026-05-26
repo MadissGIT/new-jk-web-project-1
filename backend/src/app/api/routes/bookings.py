@@ -68,13 +68,14 @@ async def cancel_booking(
     booking_id: str,
     cancel_in: BookingCancelRequest,
 ) -> BookingCancelResponse:
+    user_id = current_user.id
     response = await booking_service.cancel_booking(
         booking_id=booking_id,
-        user_id=current_user.id,
+        user_id=user_id,
         cancel_in=cancel_in,
     )
     await notification_service.create_event(
-        user_id=current_user.id,
+        user_id=user_id,
         event_type="booking_cancelled",
         title="Бронирование отменено",
         payload=booking_id,
@@ -89,12 +90,13 @@ async def confirm_mock_payment(
     current_user: CurrentUser,
     booking_id: str,
 ) -> MockPaymentResponse:
+    user_id = current_user.id
     response = await booking_service.confirm_mock_payment(
         booking_id=booking_id,
-        user_id=current_user.id,
+        user_id=user_id,
     )
     await notification_service.create_event(
-        user_id=current_user.id,
+        user_id=user_id,
         event_type="booking_confirmed",
         title="Бронирование подтверждено",
         payload=booking_id,

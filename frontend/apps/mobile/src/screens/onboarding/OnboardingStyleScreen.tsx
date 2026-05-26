@@ -16,6 +16,9 @@ import {
   type Tempo,
   usePreferencesStore,
 } from '../../entities/preferences/preferencesStore';
+import { toBudgetLevel } from '../../entities/preferences/api';
+import { useSavePreferences } from '../../entities/preferences/hooks';
+import { extractApiError } from '../../shared/api/http';
 import { colors } from '../../shared/theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'OnboardingStyle'>;
@@ -49,6 +52,7 @@ export function OnboardingStyleScreen({ navigation }: Props) {
   const setBudget = usePreferencesStore((s) => s.setBudget);
   const setDuration = usePreferencesStore((s) => s.setDuration);
   const markCompleted = usePreferencesStore((s) => s.markCompleted);
+  const savePreferences = useSavePreferences();
 
   const [budgetMinInput, setBudgetMinInput] = useState(
     budgetMin != null ? String(budgetMin) : '',
@@ -103,10 +107,15 @@ export function OnboardingStyleScreen({ navigation }: Props) {
     setBudget(Number.isNaN(min as number) ? null : min, Number.isNaN(max as number) ? null : max);
   };
 
-  const finish = () => {
+  const finish = async () => {
     if (!canSubmit) return;
     persistBudget();
     markCompleted();
+    const max = budgetMaxInput === '' ? null : Number(budgetMaxInput);
+    await savePreferences.mutateAsync({
+      pace: tempo ?? 'medium',
+      budget_level: toBudgetLevel(Number.isNaN(max as number) ? null : max),
+    });
     navigation.reset({ index: 0, routes: [{ name: 'OnboardingComplete' }] });
   };
 
@@ -130,7 +139,7 @@ export function OnboardingStyleScreen({ navigation }: Props) {
       step={{ current: 3, total: 3 }}
       primaryLabel="Завершить"
       onPrimary={finish}
-      primaryDisabled={!canSubmit}
+      primaryDisabled={!canSubmit || savePreferences.isPending}
       onSkip={skipAll}
     >
       <Text style={styles.sectionLabel}>Темп:</Text>
@@ -206,6 +215,9 @@ export function OnboardingStyleScreen({ navigation }: Props) {
       </View>
       {durationError ? (
         <Text style={styles.errorText}>{durationError}</Text>
+      ) : null}
+      {savePreferences.isError ? (
+        <Text style={styles.errorText}>{extractApiError(savePreferences.error)}</Text>
       ) : null}
 
       <Modal

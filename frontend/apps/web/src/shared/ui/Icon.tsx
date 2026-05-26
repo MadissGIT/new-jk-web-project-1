@@ -25,6 +25,62 @@ export function TicketsIcon(props: Props) {
   )
 }
 
+export function SearchIcon(props: Props) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  )
+}
+
+export function EyeIcon(props: Props) {
+  return (
+    <svg {...base(props)}>
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </svg>
+  )
+}
+
+export function MapPinIcon(props: Props) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12Z" />
+      <circle cx="12" cy="9" r="2.4" />
+    </svg>
+  )
+}
+
+export function ClockIcon(props: Props) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+export function PeopleIcon(props: Props) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 20a5.5 5.5 0 0 1 11 0" />
+      <path d="M16 11a3 3 0 0 0 0-6" />
+      <path d="M17.5 20a5.5 5.5 0 0 0-3-4.9" />
+    </svg>
+  )
+}
+
+export function MoneyIcon(props: Props) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3v18" />
+      <path d="M17 7.5A4 4 0 0 0 12 6c-2.2 0-4 1-4 2.7 0 4 8.5 1.8 8.5 6.3 0 1.8-1.9 3-4.5 3a5.8 5.8 0 0 1-5-2.3" />
+    </svg>
+  )
+}
+
 export function AnalyticsIcon(props: Props) {
   return (
     <svg {...base(props)}>

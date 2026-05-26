@@ -3,7 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import delete, func, select
 
-from src.app.db.models.route import Route, RoutePoint, RouteSource, RouteStatus
+from src.app.db.models.route import Route, RoutePoint, RouteScenario, RouteSource, RouteStatus
 from src.app.repositories.base import BaseRepository
 
 
@@ -70,3 +70,15 @@ class RouteRepository(BaseRepository[Route]):
         await self.session.execute(delete(RoutePoint).where(RoutePoint.route_id == route_id))
         self.session.add_all(points)
         await self.session.commit()
+
+    async def list_active_scenarios(self) -> Sequence[RouteScenario]:
+        statement = (
+            select(RouteScenario)
+            .where(RouteScenario.is_active.is_(True))
+            .order_by(RouteScenario.sort_order, RouteScenario.created_at)
+        )
+        return (await self.session.execute(statement)).scalars().all()
+
+    async def get_scenario_by_slug(self, slug: str) -> RouteScenario | None:
+        statement = select(RouteScenario).where(RouteScenario.slug == slug)
+        return (await self.session.execute(statement)).scalar_one_or_none()

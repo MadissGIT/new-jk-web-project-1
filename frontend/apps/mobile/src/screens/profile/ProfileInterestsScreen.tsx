@@ -20,6 +20,9 @@ import {
   type Tempo,
   usePreferencesStore,
 } from '../../entities/preferences/preferencesStore';
+import { toBudgetLevel } from '../../entities/preferences/api';
+import { useSavePreferences } from '../../entities/preferences/hooks';
+import { extractApiError } from '../../shared/api/http';
 import { ScreenHeader } from '../../shared/ui/ScreenHeader';
 import { SaveButton } from '../../shared/ui/SaveButton';
 import { colors } from '../../shared/theme/colors';
@@ -69,6 +72,7 @@ export function ProfileInterestsScreen() {
   const durationMinStore = usePreferencesStore((s) => s.durationMinHours);
   const durationMaxStore = usePreferencesStore((s) => s.durationMaxHours);
   const setDuration = usePreferencesStore((s) => s.setDuration);
+  const savePreferences = useSavePreferences();
 
   const [budgetMin, setBudgetMin] = useState(
     budgetMinStore !== null ? String(budgetMinStore) : '',
@@ -107,12 +111,13 @@ export function ProfileInterestsScreen() {
 
   const canSave = !budgetError && !durationError;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canSave) return;
     const min = budgetMin ? Number(budgetMin) : null;
     const max = budgetMax ? Number(budgetMax) : null;
     setBudget(min, max);
     setDuration(durationMin, durationMax);
+    await savePreferences.mutateAsync({ budget_level: toBudgetLevel(max) });
     navigation.goBack();
   };
 
@@ -242,9 +247,16 @@ export function ProfileInterestsScreen() {
           </Pressable>
         </View>
         {durationError ? <Text style={styles.error}>{durationError}</Text> : null}
+        {savePreferences.isError ? (
+          <Text style={styles.error}>{extractApiError(savePreferences.error)}</Text>
+        ) : null}
 
         <View style={styles.saveWrap}>
-          <SaveButton onPress={handleSave} disabled={!canSave} />
+          <SaveButton
+            onPress={handleSave}
+            disabled={!canSave}
+            loading={savePreferences.isPending}
+          />
         </View>
       </ScrollView>
 

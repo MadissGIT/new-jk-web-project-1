@@ -19,6 +19,8 @@ from src.app.db.models.guide_profile import (
     GuideProfilePublic,
     GuideProfileResponse,
     GuideProfileUpdate,
+    GuidePublicProfileResponse,
+    GuidePublicView,
 )
 from src.app.db.models.user import (
     Role,
@@ -130,6 +132,15 @@ class UserService(BaseService[UserRepository]):
         application = await self.repository.create_guide_application(user_id, application_in)
         return DetailResponse(data=self._guide_application_to_public(application))
 
+    async def get_latest_guide_application_for_user(
+        self,
+        user_id: uuid.UUID,
+    ) -> GuideApplicationResponse:
+        application = await self.repository.get_latest_guide_application(user_id=user_id)
+        if not application:
+            raise HTTPException(status_code=404, detail="Guide application not found")
+        return DetailResponse(data=self._guide_application_to_public(application))
+
     async def get_guide_applications(
         self,
         page: int,
@@ -202,17 +213,115 @@ class UserService(BaseService[UserRepository]):
             profile = GuideProfile(user_id=user_id)  # type: ignore[arg-type]
         return DetailResponse(data=self._guide_profile_to_public(profile))
 
+    async def get_guide_public_profile(
+        self,
+        *,
+        guide: User,
+        tour_service: object,
+    ) -> GuidePublicProfileResponse:
+        """Публичная карточка гида для туристов: профиль + статистика + туры."""
+        from src.app.service.tour import TourService
+
+        if not isinstance(tour_service, TourService):
+            raise TypeError("tour_service must be TourService")
+
+        profile = (await self.get_guide_profile(user_id=guide.id)).data
+        stats = (await tour_service.get_guide_stats(guide_id=guide.id)).data
+        tours = await tour_service.get_guide_published_tours_brief(guide_id=guide.id, limit=20)
+
+        application = await self.repository.get_latest_guide_application(user_id=guide.id)
+        contacts: str | None = None
+        display_name: str | None = None
+        payload_bio = ""
+        payload_specialization = ""
+        payload_languages: list[str] = []
+        payload_experience = 0
+        if application and application.status == GuideApplicationStatus.APPROVED:
+            payload = application.payload or {}
+            contacts = payload.get("contacts")
+            display_name = payload.get("displayName")
+            payload_bio = str(payload.get("bio") or "")
+            specs = payload.get("specializations")
+            if isinstance(specs, list):
+                payload_specialization = ", ".join(str(item) for item in specs if item)
+            payload_languages = payload.get("languages") if isinstance(payload.get("languages"), list) else []
+            payload_experience = int(payload.get("experienceYears") or 0)
+
+        name = (display_name or f"{guide.name} {guide.surname}").strip()
+        avatar = profile.avatar or guide.avatar_url
+        bio = profile.bio or payload_bio
+        specialization = profile.specialization or payload_specialization
+        languages = profile.languages if profile.languages else payload_languages
+        experience = profile.experience if profile.experience > 0 else payload_experience
+
+        rating_map = await tour_service.repository.get_guide_rating_stats_map(
+            guide_ids=[str(guide.id)],
+        )
+        avg_rating, reviews_count = rating_map.get(str(guide.id), (stats.avg_rating, 0))
+
+        return DetailResponse(
+            data=GuidePublicView(
+                user_id=guide.id,
+                name=name,
+                email=str(guide.email),
+                phone=guide.phone,
+                contacts=contacts,
+                bio=bio,
+                specialization=specialization,
+                languages=languages,
+                experience=experience,
+                avatar=avatar,
+                rating=float(avg_rating),
+                reviews_count=int(reviews_count),
+                tours_count=stats.tours_count,
+                tours=tours,
+            ),
+        )
+
     async def update_guide_profile(
         self,
         *,
         user_id: object,
         profile_in: GuideProfileUpdate,
     ) -> GuideProfileResponse:
+        avatar = profile_in.avatar
+        if avatar and len(avatar) > 512:
+            avatar = None
+
         profile = await self.repository.upsert_guide_profile(
             user_id=user_id,
-            profile_in=profile_in,
+            profile_in=GuideProfileUpdate(
+                bio=profile_in.bio,
+                specialization=profile_in.specialization,
+                languages=profile_in.languages,
+                experience=profile_in.experience,
+                avatar=avatar,
+            ),
         )
-        return DetailResponse(data=self._guide_profile_to_public(profile))
+        # Сериализуем до второго commit: иначе ORM-объект протухает (MissingGreenlet).
+        profile_public = self._guide_profile_to_public(profile)
+
+        application = await self.repository.get_latest_guide_application(user_id=user_id)
+        if application and application.status == GuideApplicationStatus.APPROVED:
+            payload = dict(application.payload or {})
+            payload["bio"] = profile_in.bio
+            payload["specializations"] = [
+                item.strip()
+                for item in profile_in.specialization.split(",")
+                if item.strip()
+            ]
+            payload["languages"] = list(profile_in.languages)
+            payload["experienceYears"] = profile_in.experience
+            if profile_in.display_name is not None:
+                payload["displayName"] = profile_in.display_name
+            if profile_in.contacts is not None:
+                payload["contacts"] = profile_in.contacts
+            await self.repository.update_guide_application_payload(
+                application=application,
+                payload=payload,
+            )
+
+        return DetailResponse(data=profile_public)
 
     def _preferences_to_public(self, preferences: UserPreferences) -> UserPreferencesPublic:
         return UserPreferencesPublic(

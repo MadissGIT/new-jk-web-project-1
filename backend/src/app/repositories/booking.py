@@ -6,6 +6,7 @@ from sqlalchemy import func, select, update
 
 from src.app.db.models.booking import Booking, BookingStatus
 from src.app.db.models.tour import SlotStatus, Tour, TourSlot
+from src.app.db.models.user import User
 from src.app.repositories.base import BaseRepository
 
 
@@ -17,6 +18,13 @@ class BookingRepository(BaseRepository[Booking]):
 
     async def get_slot(self, slot_id: str) -> TourSlot | None:
         return await self.session.get(TourSlot, slot_id)
+
+    async def get_users_map(self, user_ids: list[uuid.UUID]) -> dict[uuid.UUID, User]:
+        if not user_ids:
+            return {}
+        statement = select(User).where(User.id.in_(user_ids))
+        rows = (await self.session.execute(statement)).scalars().all()
+        return {user.id: user for user in rows}
 
     async def get_by_idempotency_key(
         self,

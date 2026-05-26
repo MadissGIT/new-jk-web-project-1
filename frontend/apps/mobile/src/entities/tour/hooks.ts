@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   cancelBooking,
@@ -6,16 +6,19 @@ import {
   createBooking,
   createTour,
   createTourReview,
+  closeTourSlot,
   createTourSlot,
   fetchBookingDetail,
   fetchBookings,
+  fetchMyTours,
   fetchTour,
   fetchTourReviews,
   fetchTours,
   fetchTourSlots,
   refundMockPayment,
+  updateTourStatus,
 } from './api';
-import type { TourCreatePayload, TourSlotCreatePayload } from './types';
+import type { TourCreatePayload, TourSlotCreatePayload, TourStatus } from './types';
 
 export function useTours(params?: Record<string, unknown>) {
   return useQuery({
@@ -31,6 +34,14 @@ export function useTour(tourId: string | null) {
     queryFn: () => fetchTour(tourId as string),
     enabled: Boolean(tourId),
     staleTime: 60_000,
+  });
+}
+
+export function useMyTours(params?: Record<string, unknown>) {
+  return useQuery({
+    queryKey: ['tours', 'me', params],
+    queryFn: () => fetchMyTours(params),
+    staleTime: 30_000,
   });
 }
 
@@ -50,6 +61,7 @@ export function useTourSlots(tourId: string | null) {
 }
 
 export function useCreateTourSlot() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({
       tourId,
@@ -58,6 +70,20 @@ export function useCreateTourSlot() {
       tourId: string;
       payload: TourSlotCreatePayload;
     }) => createTourSlot(tourId, payload),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ['tours', 'slots', variables.tourId] });
+    },
+  });
+}
+
+export function useCloseTourSlot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tourId, slotId }: { tourId: string; slotId: string }) =>
+      closeTourSlot(tourId, slotId),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ['tours', 'slots', variables.tourId] });
+    },
   });
 }
 
@@ -133,5 +159,19 @@ export function useTourReviews(tourId: string | null) {
     queryFn: () => fetchTourReviews(tourId as string),
     enabled: Boolean(tourId),
     staleTime: 30_000,
+  });
+}
+
+export function useUpdateTourStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ tourId, status }: { tourId: string; status: TourStatus }) =>
+      updateTourStatus(tourId, status),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ['tours', 'me'] });
+      void queryClient.invalidateQueries({ queryKey: ['tours', 'detail', variables.tourId] });
+      void queryClient.invalidateQueries({ queryKey: ['tours', 'list'] });
+    },
   });
 }

@@ -62,6 +62,9 @@ class ReviewPublic(SQLModel):
     rating: int
     text: str
     created_at: datetime.datetime
+    entity_type: ReviewEntityType | None = None
+    entity_id: str | None = None
+    entity_title: str | None = None
 
 
 class ReviewCreatedPublic(SQLModel):

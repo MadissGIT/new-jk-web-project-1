@@ -1,4 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 
 type PoeFiltersState = {
   category: string | null;
@@ -29,18 +31,36 @@ export const usePoeFiltersStore = create<PoeFiltersState>((set) => ({
 }));
 
 type PoeFavoritesState = {
+  _hasHydrated: boolean;
   favouriteIds: string[];
+  setHydrated: (value: boolean) => void;
+  setFavouriteIds: (ids: string[]) => void;
   toggleFavourite: (id: string) => void;
 };
 
-export const usePoeFavouritesStore = create<PoeFavoritesState>((set, get) => ({
-  favouriteIds: [],
-  toggleFavourite: (id) => {
-    const current = get().favouriteIds;
-    set({
-      favouriteIds: current.includes(id)
-        ? current.filter((x) => x !== id)
-        : [...current, id],
-    });
-  },
-}));
+export const usePoeFavouritesStore = create<PoeFavoritesState>()(
+  persist(
+    (set, get) => ({
+      _hasHydrated: false,
+      favouriteIds: [],
+      setHydrated: (value) => set({ _hasHydrated: value }),
+      setFavouriteIds: (ids) => set({ favouriteIds: Array.from(new Set(ids)) }),
+      toggleFavourite: (id) => {
+        const current = get().favouriteIds;
+        set({
+          favouriteIds: current.includes(id)
+            ? current.filter((x) => x !== id)
+            : [...current, id],
+        });
+      },
+    }),
+    {
+      name: 'poe-favourites',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({ favouriteIds: state.favouriteIds }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHydrated(true);
+      },
+    },
+  ),
+);

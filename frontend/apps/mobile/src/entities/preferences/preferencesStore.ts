@@ -38,6 +38,20 @@ export type PreferencesState = {
   setTempo: (tempo: Tempo) => void;
   setBudget: (min: number | null, max: number | null) => void;
   setDuration: (min: number | null, max: number | null) => void;
+  applyRemotePreferences: (
+    value: Partial<
+      Pick<
+        PreferencesState,
+        | 'interests'
+        | 'accessibility'
+        | 'tempo'
+        | 'budgetMin'
+        | 'budgetMax'
+        | 'durationMinHours'
+        | 'durationMaxHours'
+      >
+    >,
+  ) => void;
   markCompleted: () => void;
   reset: () => void;
 };
@@ -88,6 +102,7 @@ export const usePreferencesStore = create<PreferencesState>()(
       setBudget: (min, max) => set({ budgetMin: min, budgetMax: max }),
       setDuration: (min, max) =>
         set({ durationMinHours: min, durationMaxHours: max }),
+      applyRemotePreferences: (value) => set(value),
 
       markCompleted: () => set({ completed: true }),
       reset: () => set({ ...initial }),

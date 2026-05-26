@@ -2,7 +2,7 @@ import datetime
 import uuid
 
 from pydantic import EmailStr, field_serializer, field_validator
-from sqlalchemy import Column, ForeignKey
+from sqlalchemy import Column, ForeignKey, Text
 from sqlmodel import Field, SQLModel
 
 from src.app.const import Variants
@@ -10,11 +10,11 @@ from src.app.db.schemas import ListResponse, Message
 
 
 class Role(Variants):
-    TOURIST = "tourist"
-    GUIDE = "guide"
+    USER = "user"
+    EMPLOYEE = "employee"
     ADMIN = "admin"
-    USER = "tourist"
-    EMPLOYEE = "guide"
+    TOURIST = "user"
+    GUIDE = "employee"
 
 
 class UserStatus(Variants):
@@ -26,6 +26,8 @@ class UserBase(SQLModel):
     name: str = Field(max_length=255, nullable=False)
     surname: str = Field(max_length=255, nullable=False)
     patronymic: str | None = Field(max_length=255, nullable=True)
+    phone: str | None = Field(default=None, max_length=64, nullable=True)
+    avatar_url: str | None = Field(default=None, sa_column=Column(Text(), nullable=True))
     role: Role = Field(default=Role.TOURIST)
     status: UserStatus = Field(default=UserStatus.ACTIVE)
     email: EmailStr = Field(max_length=255, unique=True, nullable=False, index=True)
@@ -67,6 +69,8 @@ class UserUpdate(SQLModel):
     name: str | None = Field(default=None, max_length=255)
     surname: str | None = Field(default=None, max_length=255)
     patronymic: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=64)
+    avatar_url: str | None = None
 
 
 class UserBlockRequest(SQLModel):

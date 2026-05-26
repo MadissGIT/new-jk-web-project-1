@@ -66,6 +66,20 @@ class ReviewRepository(BaseRepository[Review]):
     async def get_poe(self, poe_id: str) -> Poe | None:
         return await self.session.get(Poe, poe_id)
 
+    async def get_tours_map(self, ids: list[str]) -> dict[str, Tour]:
+        if not ids:
+            return {}
+        statement = select(Tour).where(Tour.id.in_(ids))
+        rows = (await self.session.execute(statement)).scalars().all()
+        return {tour.id: tour for tour in rows}
+
+    async def get_poes_map(self, ids: list[str]) -> dict[str, Poe]:
+        if not ids:
+            return {}
+        statement = select(Poe).where(Poe.id.in_(ids))
+        rows = (await self.session.execute(statement)).scalars().all()
+        return {poe.id: poe for poe in rows}
+
     async def get_booking(self, booking_id: str) -> Booking | None:
         return await self.session.get(Booking, booking_id)
 

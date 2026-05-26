@@ -12,6 +12,8 @@ from src.app.db.models.booking import (
     BookingCreatedPublic,
     BookingCreateResponse,
     BookingDetail,
+    GuideBookingPublic,
+    GuideBookingsPublic,
     BookingPublic,
     BookingResponse,
     BookingSlotDetail,
@@ -27,6 +29,7 @@ from src.app.db.models.booking import (
 from src.app.db.models.tour import Price, SlotStatus, Tour, TourSlot
 from src.app.db.schemas import DetailResponse, PaginationMeta
 from src.app.repositories.booking import BookingRepository
+from src.app.core.datetime import app_now
 from src.app.service.base import BaseService
 
 
@@ -62,6 +65,21 @@ def booking_to_public(booking: Booking, tour: Tour, slot: TourSlot) -> BookingPu
         participants_count=booking.participants_count,
         status=booking.status,
         price_total=booking_price(booking),
+        contact_phone=booking.contact_phone,
+        comment=booking.comment,
+    )
+
+
+def booking_to_guide_public(
+    booking: Booking,
+    tour: Tour,
+    slot: TourSlot,
+    *,
+    customer_name: str,
+) -> GuideBookingPublic:
+    return GuideBookingPublic(
+        **booking_to_public(booking, tour, slot).model_dump(),
+        customer_name=customer_name,
     )
 
 
@@ -101,6 +119,11 @@ class BookingService(BaseService[BookingRepository]):
         slot = await self.repository.get_slot(booking_in.slot_id)
         if not slot or slot.tour_id != tour.id:
             raise HTTPException(status_code=404, detail="Slot not found")
+        now = app_now()
+        if slot.ends_at <= now:
+            raise HTTPException(status_code=409, detail="Tour slot has already ended")
+        if slot.starts_at <= now:
+            raise HTTPException(status_code=409, detail="Tour slot has already started")
         if slot.status != SlotStatus.AVAILABLE or slot.available_capacity <= 0:
             raise HTTPException(status_code=409, detail="Selected slot is unavailable")
         if slot.available_capacity < booking_in.participants_count:
@@ -164,7 +187,7 @@ class BookingService(BaseService[BookingRepository]):
         tour_id: str | None = None,
         date_from: datetime.datetime | None = None,
         date_to: datetime.datetime | None = None,
-    ) -> BookingsPublic:
+    ) -> GuideBookingsPublic:
         bookings, total = await self.repository.list_guide_bookings(
             guide_id=str(guide_id),
             skip=(page - 1) * limit,
@@ -174,8 +197,26 @@ class BookingService(BaseService[BookingRepository]):
             date_from=date_from,
             date_to=date_to,
         )
-        return BookingsPublic(
-            data=[await self._booking_to_public(booking) for booking in bookings],
+        user_ids = list({booking.user_id for booking in bookings})
+        users_map = await self.repository.get_users_map(user_ids)
+        items: list[GuideBookingPublic] = []
+        for booking in bookings:
+            tour = await self._get_booking_tour(booking)
+            slot = await self._get_booking_slot(booking)
+            user = users_map.get(booking.user_id)
+            customer_name = " ".join(
+                part for part in [user.surname, user.name] if user and part
+            ).strip() or (user.email if user else "Гость")
+            items.append(
+                booking_to_guide_public(
+                    booking,
+                    tour,
+                    slot,
+                    customer_name=customer_name,
+                ),
+            )
+        return GuideBookingsPublic(
+            data=items,
             meta=PaginationMeta.create(page=page, limit=limit, total=total),
         )
 

@@ -13,6 +13,7 @@ from src.app.db.models.route import (
     RouteProgressUpdate,
     RouteResponse,
     RouteSaveResponse,
+    RouteScenariosPublic,
     RouteSource,
     RoutesPublic,
     RouteStatus,
@@ -67,6 +68,18 @@ async def generate_route(
     route_in: RouteGenerateRequest,
 ) -> RouteGenerateResponse:
     return await route_service.generate_route(route_in, user_id=current_user.id)
+
+
+@router.get("/scenarios", response_model=RouteScenariosPublic)
+async def read_route_scenarios(
+    route_service: RouteServiceDep,
+) -> RouteScenariosPublic:
+    """Список «быстрых сценариев» для главного экрана.
+
+    Публичный эндпоинт: возвращает активные пресеты, отсортированные по `sort_order`.
+    Каждый пресет — параметры для последующего вызова `POST /routes/generate`.
+    """
+    return await route_service.get_scenarios()
 
 
 @router.get("/{route_id}", response_model=RouteResponse)

@@ -1,4 +1,5 @@
 import type { Place } from '../../entities/place/types';
+import { isNoisyPlace } from '../../entities/place/accessibility';
 import type { PreferencesState } from '../../entities/preferences/preferencesStore';
 
 export type RecommendationInput = Pick<
@@ -23,8 +24,8 @@ export type Recommendations = {
   relaxed: boolean;
 };
 
-// Физические ограничения, требующие инфраструктуры от места. Остальные
-// опции (cane, hearing) на текущем этапе учитываются только в сортировке.
+// Физические ограничения, требующие инфраструктуры от места. Hearing
+// отдельно убирает шумные места вроде клубов и концертных площадок.
 const HARD_ACCESSIBILITY: ('wheelchair' | 'ramps' | 'avoid_stairs')[] = [
   'wheelchair',
   'ramps',
@@ -79,6 +80,9 @@ export function recommendPlaces(
     if (durationMinHours != null && place.durationHours < durationMinHours) {
       continue;
     }
+    if (!hasNoLimits && accessibility.includes('hearing') && isNoisyPlace(place)) {
+      continue;
+    }
 
     let score = 0;
 
@@ -93,6 +97,7 @@ export function recommendPlaces(
     }
 
     if (place.priceMin === 0 && place.priceMax === 0) score += 1;
+    if (accessibility.includes('hearing') && isNoisyPlace(place)) score -= 12;
 
     scored.push({ place, score });
   }

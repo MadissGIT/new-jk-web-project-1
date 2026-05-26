@@ -69,6 +69,8 @@ async def create_tour(
     )
     if current_user.role == Role.ADMIN:
         tour_payload.status = TourStatus.PUBLISHED
+    else:
+        tour_payload.status = TourStatus.MODERATION
     return await tour_service.create_tour(tour_payload)
 
 

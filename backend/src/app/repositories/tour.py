@@ -6,6 +6,7 @@ from sqlalchemy import Select, and_, exists, func, select
 from src.app.db.models.booking import Booking
 from src.app.db.models.review import Review, ReviewEntityType
 from src.app.db.models.tour import SlotStatus, Tour, TourFormat, TourSlot, TourStatus
+from src.app.core.datetime import app_now
 from src.app.repositories.base import BaseRepository
 
 
@@ -25,7 +26,16 @@ class TourRepository(BaseRepository[Tour]):
         wheelchair_accessible: bool | None = None,
         date: datetime.date | None = None,
     ) -> Select[tuple[Tour]]:
-        statement = select(Tour)
+        statement = select(Tour).where(Tour.status == TourStatus.PUBLISHED)
+        stale_cutoff = app_now() - datetime.timedelta(days=1)
+        statement = statement.where(
+            exists().where(
+                TourSlot.tour_id == Tour.id,
+                TourSlot.ends_at >= stale_cutoff,
+                TourSlot.status == SlotStatus.AVAILABLE,
+                TourSlot.available_capacity > 0,
+            ),
+        )
         if city_id:
             statement = statement.where(Tour.city_id == city_id)
         if format:

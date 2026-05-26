@@ -27,6 +27,8 @@ export type TourAccessibility = {
   avoid_stairs_possible: boolean;
 };
 
+export type TourStatus = 'draft' | 'moderation' | 'published' | 'hidden' | 'rejected';
+
 export type GuidePublic = {
   id: string;
   name: string;
@@ -42,11 +44,16 @@ export type TourPublic = {
   format: string;
   language: string;
   duration_minutes: number;
+  group_size_max: number;
+  status: TourStatus;
   price: Price;
   guide: GuidePublic;
   rating: number;
   reviews_count: number;
   cover_image_url: string | null;
+  images?: string[];
+  tags: string[];
+  meeting_point: { lat: number; lng: number; address?: string | null };
   accessibility: TourAccessibility;
 };
 
@@ -61,8 +68,8 @@ export type TourCreatePayload = {
   title: string;
   description: string;
   city_id: string;
-  guide_id: string;
-  guide_name: string;
+  guide_id?: string | null;
+  guide_name?: string | null;
   guide_avatar_url?: string | null;
   guide_rating?: number;
   guide_reviews_count?: number;
@@ -99,9 +106,11 @@ export type TourDetail = {
   format: string;
   language: string;
   duration_minutes: number;
+  status: TourStatus;
   group_size_max: number;
   price: Price;
   tags: string[];
+  cover_image_url?: string | null;
   meeting_point: { lat: number; lng: number; address?: string | null };
   route_preview: { distance_meters: number; points_count: number };
   accessibility: TourAccessibility;
@@ -181,6 +190,20 @@ export type BookingPublic = {
   status: BookingStatus;
   refund_status?: 'not_required' | 'pending' | 'refunded';
   price_total: Price;
+  contact_phone?: string | null;
+  comment?: string | null;
+};
+
+export type GuideBookingPublic = BookingPublic & {
+  customer_name: string;
+};
+
+export type TourSlotUpdatePayload = {
+  starts_at?: string;
+  ends_at?: string;
+  available_capacity?: number;
+  price?: Price;
+  status?: TourSlotPublic['status'];
 };
 
 export type BookingDetail = BookingPublic & {

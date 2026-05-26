@@ -38,9 +38,42 @@ class GuideProfileUpdate(SQLModel):
     languages: list[str] = Field(default_factory=list)
     experience: int = Field(default=0, ge=0)
     avatar: str | None = Field(default=None, max_length=512)
+    # Синхронизируются с payload одобренной заявки (для публичной карточки).
+    display_name: str | None = Field(default=None, max_length=255)
+    contacts: str | None = Field(default=None, max_length=2000)
 
 
 GuideProfileResponse = DetailResponse[GuideProfilePublic]
+
+
+class GuideTourBriefPublic(SQLModel):
+    id: str
+    title: str
+    cover_image_url: str | None = None
+    rating: float = 0.0
+    reviews_count: int = 0
+
+
+class GuidePublicView(SQLModel):
+    """Публичная карточка гида для туристов (экран профиля из тура)."""
+
+    user_id: uuid.UUID
+    name: str
+    email: str
+    phone: str | None = None
+    contacts: str | None = None
+    bio: str
+    specialization: str
+    languages: list[str]
+    experience: int
+    avatar: str | None = None
+    rating: float = 0.0
+    reviews_count: int = 0
+    tours_count: int = 0
+    tours: list[GuideTourBriefPublic] = Field(default_factory=list)
+
+
+GuidePublicProfileResponse = DetailResponse[GuidePublicView]
 
 
 class GuideTopTourPublic(SQLModel):

@@ -1,12 +1,40 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
-import { reviewsMock, type ReviewItem } from '../../entities/profile/mocks';
+import { useDeleteMyReview, useMyReviews } from '../../entities/review/hooks';
+import type { ReviewPublic } from '../../entities/review/types';
+import { extractApiError } from '../../shared/api/http';
 import { ScreenHeader } from '../../shared/ui/ScreenHeader';
 import { Stars } from '../../shared/ui/Stars';
 import { colors } from '../../shared/theme/colors';
 
+function formatReviewDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function entityKindLabel(entityType?: ReviewPublic['entity_type']) {
+  if (entityType === 'tour') return 'Тур';
+  if (entityType === 'poe') return 'Место';
+  return 'Объект';
+}
+
 export function ProfileReviewsScreen() {
+  const reviews = useMyReviews();
+  const deleteReview = useDeleteMyReview();
+
   return (
     <View style={styles.flex}>
       <ScrollView
@@ -16,11 +44,32 @@ export function ProfileReviewsScreen() {
         <ScreenHeader />
         <Text style={styles.title}>Отзывы</Text>
 
+        {reviews.isLoading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator color={colors.textPrimary} />
+          </View>
+        ) : null}
+
+        {reviews.isError ? (
+          <Text style={styles.errorText}>{extractApiError(reviews.error)}</Text>
+        ) : null}
+
         <View style={styles.list}>
-          {reviewsMock.map((item) => (
-            <ReviewCard key={item.id} item={item} />
+          {(reviews.data?.data ?? []).map((item) => (
+            <ReviewCard
+              key={item.id}
+              item={item}
+              onDelete={() => deleteReview.mutate(item.id)}
+              isDeleting={deleteReview.isPending}
+            />
           ))}
         </View>
+
+        {!reviews.isLoading && (reviews.data?.data.length ?? 0) === 0 ? (
+          <Text style={styles.emptyText}>
+            Вы ещё не оставляли отзывов. Они появятся здесь после оценки тура или места.
+          </Text>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -28,7 +77,15 @@ export function ProfileReviewsScreen() {
 
 const COLLAPSED_LENGTH = 120;
 
-function ReviewCard({ item }: { item: ReviewItem }) {
+function ReviewCard({
+  item,
+  onDelete,
+  isDeleting,
+}: {
+  item: ReviewPublic;
+  onDelete: () => void;
+  isDeleting: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const needTruncate = item.text.length > COLLAPSED_LENGTH;
   const visibleText =
@@ -38,7 +95,11 @@ function ReviewCard({ item }: { item: ReviewItem }) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>{item.title}</Text>
+      <Text style={styles.kind}>{entityKindLabel(item.entity_type)}</Text>
+      <Text style={styles.cardTitle}>
+        {item.entity_title?.trim() || 'Без названия'}
+      </Text>
+      <Text style={styles.date}>{formatReviewDate(item.created_at)}</Text>
       <View style={styles.stars}>
         <Stars value={item.rating} />
       </View>
@@ -50,6 +111,13 @@ function ReviewCard({ item }: { item: ReviewItem }) {
           </Text>
         ) : null}
       </Text>
+      <Pressable
+        style={[styles.deleteBtn, isDeleting && styles.deleteBtnDisabled]}
+        disabled={isDeleting}
+        onPress={onDelete}
+      >
+        <Text style={styles.deleteBtnText}>Удалить</Text>
+      </Pressable>
     </View>
   );
 }
@@ -69,6 +137,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: 16,
   },
+  loadingWrap: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
   list: {
     gap: 12,
   },
@@ -77,10 +149,22 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
   },
+  kind: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+  },
   cardTitle: {
+    marginTop: 4,
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  date: {
+    marginTop: 4,
+    fontSize: 12,
+    color: colors.textMuted,
   },
   stars: {
     marginTop: 6,
@@ -94,5 +178,32 @@ const styles = StyleSheet.create({
   moreLink: {
     color: colors.textSubtle,
     fontWeight: '600',
+  },
+  deleteBtn: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.errorText,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  deleteBtnDisabled: {
+    opacity: 0.5,
+  },
+  deleteBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.errorText,
+  },
+  emptyText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textMuted,
+  },
+  errorText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: colors.errorText,
   },
 });

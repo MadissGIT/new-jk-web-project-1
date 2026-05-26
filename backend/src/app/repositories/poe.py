@@ -15,6 +15,7 @@ class PoeRepository(BaseRepository[Poe]):
         city_id: str | None = None,
         category: str | None = None,
         wheelchair_accessible: bool | None = None,
+        requires_ramp: bool | None = None,
         avoid_stairs: bool | None = None,
     ) -> Sequence[Poe]:
         statement = select(Poe)
@@ -24,6 +25,8 @@ class PoeRepository(BaseRepository[Poe]):
             statement = statement.where(Poe.category == category)
         if wheelchair_accessible is not None:
             statement = statement.where(Poe.wheelchair_accessible == wheelchair_accessible)
+        if requires_ramp:
+            statement = statement.where(Poe.has_ramp.is_(True))
         if avoid_stairs:
             statement = statement.where(Poe.has_stairs.is_(False))
         result = await self.session.execute(statement)
