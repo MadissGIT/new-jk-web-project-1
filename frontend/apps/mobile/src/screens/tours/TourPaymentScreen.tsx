@@ -1,7 +1,15 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ImageSourcePropType,
+} from 'react-native';
 
 import { useBookingDetail, useConfirmMockPayment } from '../../entities/tour/hooks';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
@@ -26,26 +34,54 @@ type MethodRow = {
   id: PaymentMethodId;
   title: string;
   subtitle?: string;
-  /** Подстрочники для развёрнутого СБП */
+  icon?: ImageSourcePropType;
+  mark?: string;
   bullets?: string[];
 };
 
 const PAYMENT_METHODS: MethodRow[] = [
-  { id: 'yandex_pay', title: 'Яндекс Пэй', subtitle: 'Я пэй' },
-  { id: 'yandex_split', title: 'Сплит — частями' },
-  { id: 'podeli', title: 'Подели — частями', subtitle: 'с помощью Подели' },
-  { id: 'dolyami', title: 'Долями' },
+  {
+    id: 'yandex_pay',
+    title: 'Яндекс Пэй',
+    icon: require('../../../assets/payment/yandex-pay.jpg'),
+  },
+  {
+    id: 'yandex_split',
+    title: 'Сплит — частями',
+    icon: require('../../../assets/payment/split.jpg'),
+  },
+  {
+    id: 'podeli',
+    title: 'Подели — частями',
+    subtitle: 'с помощью Подели',
+    icon: require('../../../assets/payment/podeli.png'),
+  },
+  { id: 'dolyami', title: 'Долями', mark: 'Д' },
   {
     id: 'sbp',
     title: 'СБП',
+    icon: require('../../../assets/payment/sbp.png'),
     bullets: [
       'Выберите банк из списка',
       'Подтвердите платёж в банковском приложении',
     ],
   },
-  { id: 'new_card', title: 'Новой картой' },
-  { id: 'sberpay', title: 'SberPay', subtitle: 'Быстрая оплата со Сбером' },
-  { id: 'tpay', title: 'T-Pay' },
+  {
+    id: 'new_card',
+    title: 'Новой картой',
+    icon: require('../../../assets/payment/new-card.png'),
+  },
+  {
+    id: 'sberpay',
+    title: 'SberPay',
+    subtitle: 'Быстрая оплата со Сбером',
+    icon: require('../../../assets/payment/sberpay.jpg'),
+  },
+  {
+    id: 'tpay',
+    title: 'T-Pay',
+    icon: require('../../../assets/payment/tpay.jpg'),
+  },
 ];
 
 const FOOTER_LEGAL =
@@ -125,6 +161,18 @@ export function TourPaymentScreen({ route, navigation }: Props) {
               >
                 <View style={[styles.radio, active && styles.radioOn]}>
                   {active ? <View style={styles.radioDot} /> : null}
+                </View>
+                <View style={styles.methodMark}>
+                  {m.icon ? (
+                    <Image
+                      source={m.icon}
+                      style={styles.methodIcon}
+                      resizeMode="contain"
+                      accessibilityLabel={m.title}
+                    />
+                  ) : (
+                    <Text style={styles.methodMarkText}>{m.mark}</Text>
+                  )}
                 </View>
                 <View style={styles.rowBody}>
                   <Text style={styles.rowTitle}>{m.title}</Text>
@@ -254,6 +302,14 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.white,
   },
+  methodMark: {
+    width: 34,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  methodIcon: { width: 30, height: 26, borderRadius: 5 },
+  methodMarkText: { color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
   rowBody: { flex: 1 },
   rowTitle: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
   rowSubtitle: { marginTop: 2, fontSize: 12, color: colors.textMuted },

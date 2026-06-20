@@ -2,7 +2,17 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Feather } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type ImageSourcePropType,
+} from 'react-native';
 
 import { useAuthStore } from '../../entities/auth/authStore';
 import { useGuideModeStore } from '../../entities/guide/guideModeStore';
@@ -34,22 +44,49 @@ const PAYMENT_METHODS: Array<{
   id: PaymentMethodId;
   title: string;
   subtitle?: string;
-  mark: string;
+  icon?: ImageSourcePropType;
+  mark?: string;
   bullets?: string[];
 }> = [
-  { id: 'yandex_pay', title: 'Яндекс Пэй', mark: 'Я' },
-  { id: 'split', title: 'Сплит — частями', mark: 'S' },
-  { id: 'podeli', title: 'Подели — частями', subtitle: 'с помощью Подели', mark: 'P' },
+  {
+    id: 'yandex_pay',
+    title: 'Яндекс Пэй',
+    icon: require('../../../assets/payment/yandex-pay.jpg'),
+  },
+  {
+    id: 'split',
+    title: 'Сплит — частями',
+    icon: require('../../../assets/payment/split.jpg'),
+  },
+  {
+    id: 'podeli',
+    title: 'Подели — частями',
+    subtitle: 'с помощью Подели',
+    icon: require('../../../assets/payment/podeli.png'),
+  },
   { id: 'dolyami', title: 'Долями', mark: 'Д' },
   {
     id: 'sbp',
     title: 'СБП',
-    mark: '▶',
+    icon: require('../../../assets/payment/sbp.png'),
     bullets: ['Выберите банк из списка', 'Подтвердите платёж в банковском приложении'],
   },
-  { id: 'new_card', title: 'Новой картой', mark: '▭' },
-  { id: 'sberpay', title: 'SberPay', subtitle: 'Быстрая оплата со Сбером', mark: 'Pay' },
-  { id: 'tpay', title: 'T-Pay', mark: 'T' },
+  {
+    id: 'new_card',
+    title: 'Новой картой',
+    icon: require('../../../assets/payment/new-card.png'),
+  },
+  {
+    id: 'sberpay',
+    title: 'SberPay',
+    subtitle: 'Быстрая оплата со Сбером',
+    icon: require('../../../assets/payment/sberpay.jpg'),
+  },
+  {
+    id: 'tpay',
+    title: 'T-Pay',
+    icon: require('../../../assets/payment/tpay.jpg'),
+  },
 ];
 
 function formatDateKey(value: string) {
@@ -512,7 +549,16 @@ function MockPaymentModal({
                         {active ? <View style={styles.methodRadioDot} /> : null}
                       </View>
                       <View style={styles.methodMark}>
-                        <Text style={styles.methodMarkText}>{method.mark}</Text>
+                        {method.icon ? (
+                          <Image
+                            source={method.icon}
+                            style={styles.methodIcon}
+                            resizeMode="contain"
+                            accessibilityLabel={method.title}
+                          />
+                        ) : (
+                          <Text style={styles.methodMarkText}>{method.mark}</Text>
+                        )}
                       </View>
                       <View style={styles.methodBody}>
                         <Text style={styles.methodTitle}>{method.title}</Text>
@@ -732,11 +778,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   methodMark: {
-    minWidth: 34,
-    height: 24,
+    width: 34,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  methodIcon: { width: 30, height: 26, borderRadius: 5 },
   methodMarkText: { color: colors.textPrimary, fontSize: 13, fontWeight: '800' },
   methodBody: { flex: 1 },
   methodTitle: { color: colors.textPrimary, fontSize: 14, fontWeight: '800' },
